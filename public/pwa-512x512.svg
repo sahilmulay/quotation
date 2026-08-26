@@ -1,0 +1,5 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'>
+  <rect width='512' height='512' rx='96' fill='#0F2C59'/>
+  <path d='M256 95 L390 390 L320 390 L256 240 L192 390 L122 390 Z' fill='#38BDF8'/>
+  <text x='256' y='460' font-family='Arial, sans-serif' font-size='46' font-weight='bold' fill='#FFFFFF' text-anchor='middle'>APEX INDUSTRIES</text>
+</svg>

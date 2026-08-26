@@ -1,0 +1,364 @@
+import { CompanyDetails, Quotation } from '../types';
+import { formatCurrency, formatDate } from '../utils/formatters';
+
+/**
+ * High-DPI Canvas Image Generator for Quotations
+ * Produces crisp, print-ready JPG/PNG images that save directly
+ * to the mobile phone's photo gallery / downloads.
+ */
+export async function generateQuotationImageBlob(
+  quote: Quotation,
+  company: CompanyDetails,
+  format: 'image/jpeg' | 'image/png' = 'image/jpeg'
+): Promise<Blob> {
+  const scale = 2; // 2x Retina for crystal clear text
+  const width = 1240 * scale;
+  const height = 1754 * scale; // Standard A4 proportion
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Failed to get 2d context');
+
+  // Clean White Background
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.scale(scale, scale);
+
+  // Coordinate mapping constants (base width: 1240, height: 1754)
+  const leftX = 60;
+  const rightX = 1180;
+  const topY = 190;
+  const boxWidth = rightX - leftX; // 1120
+
+  // 1. TOP HEADER
+  ctx.fillStyle = '#0F2C59';
+  ctx.font = 'bold 36px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('QUOTATION', 620, 130);
+
+  // Underline
+  ctx.strokeStyle = '#0F2C59';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(490, 145);
+  ctx.lineTo(750, 145);
+  ctx.stroke();
+
+  // 2. MAIN OUTER BORDER
+  ctx.strokeStyle = '#1E293B';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(leftX, topY, boxWidth, 1420);
+
+  // 3. COMPANY HEADER BOX (Y: 190 to 360)
+  ctx.fillStyle = '#0F2C59';
+  ctx.font = 'bold 32px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText(company.name || 'APEX INDUSTRIES', 620, 235);
+
+  ctx.fillStyle = '#334155';
+  ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText(company.address || 'E-9, MIDC, Kupwad, SANGLI – 416436 (MS)', 620, 268);
+  ctx.fillText(`Mobile No – ${company.phones || '9850060698/8855003009'}`, 620, 298);
+  ctx.fillText(`e-mail ${company.email || 'apexindustries92@gmail.com'}`, 620, 326);
+
+  ctx.fillStyle = '#0F2C59';
+  ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText(`GSTN No -${company.gstn || '27ABDPM6031D1Z1'}`, 620, 355);
+
+  // Horizontal line below header (Y = 370)
+  ctx.beginPath();
+  ctx.moveTo(leftX, 370);
+  ctx.lineTo(rightX, 370);
+  ctx.stroke();
+
+  // 4. CUSTOMER & QUOTATION DETAILS BOX (Y: 370 to 520)
+  const metaSplitX = 720;
+  ctx.beginPath();
+  ctx.moveTo(metaSplitX, 370);
+  ctx.lineTo(metaSplitX, 520);
+  ctx.moveTo(metaSplitX, 445);
+  ctx.lineTo(rightX, 445);
+  ctx.moveTo(960, 370);
+  ctx.lineTo(960, 520);
+  ctx.stroke();
+
+  // Customer details (Left side)
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#1E293B';
+  ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText('To,', leftX + 24, 405);
+
+  ctx.fillStyle = '#0F2C59';
+  ctx.font = 'bold 24px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText(quote.customerName, leftX + 24, 440);
+
+  ctx.fillStyle = '#475569';
+  ctx.font = '19px "Segoe UI", Inter, Arial, sans-serif';
+  const addrLines = wrapText(ctx, quote.customerAddress, 600);
+  addrLines.forEach((line, i) => {
+    ctx.fillText(line, leftX + 24, 470 + i * 24);
+  });
+
+  // Quotation Meta (Right side)
+  ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillStyle = '#64748B';
+  ctx.fillText('Q. No.', metaSplitX + 15, 415);
+  ctx.fillStyle = '#0F2C59';
+  ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText(quote.quotationNo, metaSplitX + 90, 415);
+
+  ctx.fillStyle = '#64748B';
+  ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText('Date :', 975, 415);
+  ctx.fillStyle = '#1E293B';
+  ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText(formatDate(quote.quotationDate), 1040, 415);
+
+  ctx.fillStyle = '#64748B';
+  ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText('Ref. No. :', metaSplitX + 15, 490);
+  ctx.fillStyle = '#1E293B';
+  ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText(quote.refNo || '-', metaSplitX + 105, 490);
+
+  ctx.fillStyle = '#64748B';
+  ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText('Date :', 975, 490);
+  ctx.fillStyle = '#1E293B';
+  ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText(formatDate(quote.refDate) || '-', 1040, 490);
+
+  // 5. SALUTATION SECTION (Y: 520 to 600)
+  ctx.beginPath();
+  ctx.moveTo(leftX, 520);
+  ctx.lineTo(rightX, 520);
+  ctx.stroke();
+
+  ctx.fillStyle = '#1E293B';
+  ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText('Dear Sir,', leftX + 24, 555);
+  ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText('With reference to your above mentioned enquiry, we submit our lowest offer as follows.', leftX + 80, 585);
+
+  // 6. TABLE HEADER & COLUMN GRID (Y: 605 to 1260)
+  ctx.beginPath();
+  ctx.moveTo(leftX, 605);
+  ctx.lineTo(rightX, 605);
+  ctx.moveTo(leftX, 650);
+  ctx.lineTo(rightX, 650);
+  ctx.stroke();
+
+  // Column X positions:
+  const colX = [60, 150, 800, 900, 1040, 1180];
+
+  colX.forEach((x) => {
+    ctx.beginPath();
+    ctx.moveTo(x, 605);
+    ctx.lineTo(x, 1215);
+    ctx.stroke();
+  });
+
+  // Header labels
+  ctx.fillStyle = '#0F2C59';
+  ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('S. No.', 105, 636);
+  ctx.fillText('Description', 475, 636);
+  ctx.fillText('Qty.', 850, 636);
+  ctx.fillText('Unit Rate', 970, 636);
+  ctx.fillText('Amount', 1110, 636);
+
+  // Line items rendering
+  let rowY = 690;
+  quote.items.forEach((item, idx) => {
+    if (rowY > 1180) return;
+
+    ctx.fillStyle = '#334155';
+    ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(item.srNo || idx + 1), 105, rowY);
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#0F172A';
+    ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
+    const descLines = wrapText(ctx, item.description, 630);
+    descLines.forEach((dl, di) => {
+      ctx.fillText(dl, 165, rowY + di * 26);
+    });
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#1E293B';
+    ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(String(item.quantity || 1), 850, rowY);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#334155';
+    ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(formatCurrency(item.unitRate), 1025, rowY);
+
+    ctx.fillStyle = '#0F2C59';
+    ctx.font = 'bold 21px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(formatCurrency(item.amount), 1165, rowY);
+
+    rowY += Math.max(descLines.length * 28 + 15, 45);
+  });
+
+  // Table items bottom line (Y = 1215)
+  ctx.beginPath();
+  ctx.moveTo(leftX, 1215);
+  ctx.lineTo(rightX, 1215);
+  ctx.stroke();
+
+  // TOTAL Row (Y: 1215 to 1260)
+  ctx.beginPath();
+  ctx.moveTo(colX[4], 1215);
+  ctx.lineTo(colX[4], 1260);
+  ctx.moveTo(leftX, 1260);
+  ctx.lineTo(rightX, 1260);
+  ctx.stroke();
+
+  ctx.fillStyle = '#0F2C59';
+  ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('TOTAL', 1025, 1246);
+  ctx.fillText(`₹ ${formatCurrency(quote.grandTotal)}`, 1165, 1246);
+
+  // 7. TERMS & CONDITIONS AND SIGNATURE (Y: 1260 to 1610)
+  ctx.beginPath();
+  ctx.moveTo(metaSplitX, 1260);
+  ctx.lineTo(metaSplitX, 1610);
+  ctx.stroke();
+
+  // Left terms
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#475569';
+  ctx.font = 'bold 19px "Segoe UI", Inter, Arial, sans-serif';
+
+  const termRows = [
+    { label: 'Warranty -', val: quote.warranty || '12 Months', y: 1295 },
+    { label: 'Packing forwarding : -', val: quote.packingForwarding || 'Included', y: 1340 },
+    { label: 'Freight :-', val: quote.freight || 'Extra', y: 1385 },
+    { label: 'Payment:-', val: quote.paymentTerms || '100% against delivery', y: 1430 },
+  ];
+
+  termRows.forEach((tr) => {
+    ctx.fillStyle = '#475569';
+    ctx.font = 'bold 18px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(tr.label, leftX + 20, tr.y);
+
+    ctx.fillStyle = '#0F172A';
+    ctx.font = '18px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(tr.val, leftX + 225, tr.y);
+
+    ctx.beginPath();
+    ctx.moveTo(leftX, tr.y + 12);
+    ctx.lineTo(metaSplitX, tr.y + 12);
+    ctx.strokeStyle = '#CBD5E1';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  ctx.fillStyle = '#64748B';
+  ctx.font = '16px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText('We hope our offer is in line with your exact requirement.', leftX + 20, 1490);
+  ctx.fillText('Kindly feel free to ask us any details.', leftX + 20, 1520);
+
+  // Right terms & Sign
+  ctx.strokeStyle = '#CBD5E1';
+  ctx.lineWidth = 1;
+
+  const rightRows = [
+    { label: 'Validity –', val: quote.validity || '30 Days', y: 1295 },
+    { label: 'Sales Tax :- GST @', val: `${quote.gstRate}% Extra`, y: 1340 },
+    { label: 'Delivery Period :-', val: quote.deliveryPeriod || '1 to 2 Weeks', y: 1385 },
+  ];
+
+  rightRows.forEach((rr) => {
+    ctx.fillStyle = '#475569';
+    ctx.font = 'bold 18px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(rr.label, metaSplitX + 20, rr.y);
+
+    ctx.fillStyle = '#0F172A';
+    ctx.font = 'bold 18px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(rr.val, metaSplitX + 210, rr.y);
+
+    ctx.beginPath();
+    ctx.moveTo(metaSplitX, rr.y + 12);
+    ctx.lineTo(rightX, rr.y + 12);
+    ctx.stroke();
+  });
+
+  // Signatory
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#1E293B';
+  ctx.font = 'bold 19px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText('Thanking you,', 950, 1435);
+
+  ctx.fillStyle = '#0F2C59';
+  ctx.font = 'bold 21px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText('For APEX INDUSTRIES', 950, 1465);
+
+  // Stamp circle & signature
+  ctx.save();
+  ctx.strokeStyle = '#4338CA';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(950, 1515, 30, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#4338CA';
+  ctx.font = 'bold 8px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText('APEX INDUSTRIES', 950, 1512);
+  ctx.fillText('SANGLI', 950, 1528);
+  ctx.restore();
+
+  ctx.fillStyle = '#0F2C59';
+  ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
+  ctx.fillText(company.signatoryName || 'Mr. Dilip Mulay', 950, 1585);
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('Failed to create image blob'));
+    }, format, 0.95);
+  });
+}
+
+export async function downloadQuotationJPG(
+  quote: Quotation,
+  company: CompanyDetails
+): Promise<void> {
+  const cleanCustomer = (quote.customerName || 'Customer').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `${quote.quotationNo || 'Quotation'}_${cleanCustomer}.jpg`;
+  const blob = await generateQuotationImageBlob(quote, company, 'image/jpeg');
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = (text || '').split(' ');
+  const lines: string[] = [];
+  let currentLine = words[0] || '';
+
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+    const width = ctx.measureText(currentLine + ' ' + word).width;
+    if (width < maxWidth) {
+      currentLine += ' ' + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  return lines;
+}
