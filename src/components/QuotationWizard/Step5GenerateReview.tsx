@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { CompanyDetails, Quotation, TemplateConfig } from '../../types';
-import { downloadQuotationPDF, getQuotationPDFBlobUrl, printQuotationPDF } from '../../services/pdfGenerator';
-import { downloadQuotationJPG } from '../../services/imageGenerator';
+import { downloadQuotationPDF, printQuotationPDF } from '../../services/pdfGenerator';
+import { downloadQuotationJPG, generateQuotationImageBlob } from '../../services/imageGenerator';
 import { 
   Printer, 
   CheckCircle2, 
   FileCheck, 
   FileDown, 
-  Check 
+  Check,
+  Eye
 } from 'lucide-react';
 
 interface Step5GenerateReviewProps {
@@ -25,22 +26,32 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
   onSave,
   onFinish,
 }) => {
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Generate crisp visual image preview for 100% mobile compatibility
   useEffect(() => {
-    try {
-      const url = getQuotationPDFBlobUrl(quote, company, template, 'full');
-      setPdfUrl(url);
-      return () => {
-        if (url) URL.revokeObjectURL(url);
-      };
-    } catch (err) {
-      console.error('Failed to create PDF preview blob:', err);
-    }
-  }, [quote, company, template]);
+    let active = true;
+    let urlToRevoke: string | null = null;
+
+    generateQuotationImageBlob(quote, company, 'image/jpeg')
+      .then((blob) => {
+        if (!active) return;
+        const url = URL.createObjectURL(blob);
+        urlToRevoke = url;
+        setPreviewImageUrl(url);
+      })
+      .catch((err) => {
+        console.error('Failed to generate quotation preview:', err);
+      });
+
+    return () => {
+      active = false;
+      if (urlToRevoke) URL.revokeObjectURL(urlToRevoke);
+    };
+  }, [quote, company]);
 
   const handleDownloadPhotoAndPDF = async () => {
     try {
@@ -141,18 +152,25 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
         </button>
       </div>
 
-      {/* Direct Official PDF Viewport */}
-      {pdfUrl ? (
-        <div className="bg-white rounded-2xl border-2 border-slate-300 overflow-hidden shadow-lg aspect-[1/1.414] w-full min-h-[480px]">
-          <iframe
-            src={`${pdfUrl}#toolbar=0&navpanes=0`}
-            className="w-full h-full min-h-[480px] border-none"
-            title="Quotation PDF Preview"
+      {/* Preview Section Header */}
+      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 px-1 pt-1">
+        <Eye className="w-4 h-4 text-sky-600" />
+        <span>Quotation Preview</span>
+      </div>
+
+      {/* Crystal Clear 100% Mobile Compatible Preview */}
+      {previewImageUrl ? (
+        <div className="bg-white rounded-2xl border-2 border-slate-300 overflow-hidden shadow-lg p-1 sm:p-2">
+          <img
+            src={previewImageUrl}
+            alt="Quotation Preview"
+            className="w-full h-auto rounded-xl shadow-xs object-contain"
           />
         </div>
       ) : (
-        <div className="bg-white rounded-2xl p-8 text-center text-slate-400">
-          Generating PDF preview...
+        <div className="bg-white rounded-2xl p-12 text-center text-slate-400 border border-slate-200">
+          <div className="w-8 h-8 border-3 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-xs font-semibold text-slate-600">Generating crisp quotation preview...</p>
         </div>
       )}
     </div>

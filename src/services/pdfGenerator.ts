@@ -110,13 +110,13 @@ export function generateQuotationPDF(
     doc.line(leftX, 102, rightX, 102); // Top table header line
     doc.line(leftX, 110, rightX, 110); // Bottom table header line
 
-    // Column horizontal positions
-    // S.No: 10 to 26 (16mm)
-    // Description: 26 to 135 (109mm)
-    // Qty: 135 to 153 (18mm)
-    // Unit Rate: 153 to 177 (24mm)
-    // Amount: 177 to 200 (23mm)
-    const colX = [10, 26, 135, 153, 177, 200];
+    // Column horizontal positions (Generous 32mm width for Amount column)
+    // S.No: 10 to 25 (15mm)
+    // Description: 25 to 125 (100mm)
+    // Qty: 125 to 144 (19mm)
+    // Unit Rate: 144 to 168 (24mm)
+    // Amount: 168 to 200 (32mm)
+    const colX = [10, 25, 125, 144, 168, 200];
 
     // Draw vertical column grid lines from Y = 102 to 210
     colX.forEach(x => {
@@ -126,11 +126,11 @@ export function generateQuotationPDF(
     // Table Header Labels
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9.5);
-    doc.text('S. No.', 18, 107, { align: 'center' });
-    doc.text('Description', 80, 107, { align: 'center' });
-    doc.text('Qty.', 144, 107, { align: 'center' });
-    doc.text('Unit Rate', 165, 107, { align: 'center' });
-    doc.text('Amount', 188.5, 107, { align: 'center' });
+    doc.text('S. No.', 17.5, 107, { align: 'center' });
+    doc.text('Description', 75, 107, { align: 'center' });
+    doc.text('Qty.', 134.5, 107, { align: 'center' });
+    doc.text('Unit Rate', 156, 107, { align: 'center' });
+    doc.text('Amount', 184, 107, { align: 'center' });
 
     // Table items bottom line (Y = 210)
     doc.line(leftX, 210, rightX, 210);
@@ -143,7 +143,7 @@ export function generateQuotationPDF(
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text('TOTAL', 174, 215.5, { align: 'right' });
+    doc.text('TOTAL', 165, 215.5, { align: 'right' });
 
     // 7. TERMS & SIGNATURE SECTION (Y: 218 to 272)
     // Vertical divider at X = 120 from Y = 218 to 272
@@ -232,18 +232,18 @@ export function generateQuotationPDF(
     // S.No
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9.5);
-    doc.text(String(item.srNo || index + 1), 18, currentY, { align: 'center' });
+    doc.text(String(item.srNo || index + 1), 17.5, currentY, { align: 'center' });
 
     // Description (Word wrapped)
-    const descWidth = 104; // 135 - 26 - padding
+    const descWidth = 96; // 125 - 25 - padding
     const descLines = doc.splitTextToSize(item.description || '', descWidth);
-    doc.text(descLines, 28, currentY);
+    doc.text(descLines, 27, currentY);
 
     // Qty
-    doc.text(String(item.quantity || 1), 144, currentY, { align: 'center' });
+    doc.text(String(item.quantity || 1), 134.5, currentY, { align: 'center' });
 
     // Unit Rate
-    doc.text(formatCurrency(item.unitRate), 174, currentY, { align: 'right' });
+    doc.text(formatCurrency(item.unitRate), 166, currentY, { align: 'right' });
 
     // Amount
     doc.setFont('helvetica', 'bold');

@@ -3,8 +3,7 @@ import { formatCurrency, formatDate } from '../utils/formatters';
 
 /**
  * High-DPI Canvas Image Generator for Quotations
- * Produces crisp, print-ready JPG/PNG images that save directly
- * to the mobile phone's photo gallery / downloads.
+ * Produces crisp, print-ready JPG/PNG images with generous column margins.
  */
 export async function generateQuotationImageBlob(
   quote: Quotation,
@@ -74,14 +73,14 @@ export async function generateQuotationImageBlob(
   ctx.stroke();
 
   // 4. CUSTOMER & QUOTATION DETAILS BOX (Y: 370 to 520)
-  const metaSplitX = 720;
+  const metaSplitX = 700;
   ctx.beginPath();
   ctx.moveTo(metaSplitX, 370);
   ctx.lineTo(metaSplitX, 520);
   ctx.moveTo(metaSplitX, 445);
   ctx.lineTo(rightX, 445);
-  ctx.moveTo(960, 370);
-  ctx.lineTo(960, 520);
+  ctx.moveTo(945, 370);
+  ctx.lineTo(945, 520);
   ctx.stroke();
 
   // Customer details (Left side)
@@ -96,7 +95,7 @@ export async function generateQuotationImageBlob(
 
   ctx.fillStyle = '#475569';
   ctx.font = '19px "Segoe UI", Inter, Arial, sans-serif';
-  const addrLines = wrapText(ctx, quote.customerAddress, 600);
+  const addrLines = wrapText(ctx, quote.customerAddress, 580);
   addrLines.forEach((line, i) => {
     ctx.fillText(line, leftX + 24, 470 + i * 24);
   });
@@ -111,10 +110,10 @@ export async function generateQuotationImageBlob(
 
   ctx.fillStyle = '#64748B';
   ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText('Date :', 975, 415);
+  ctx.fillText('Date :', 960, 415);
   ctx.fillStyle = '#1E293B';
   ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText(formatDate(quote.quotationDate), 1040, 415);
+  ctx.fillText(formatDate(quote.quotationDate), 1025, 415);
 
   ctx.fillStyle = '#64748B';
   ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
@@ -125,10 +124,10 @@ export async function generateQuotationImageBlob(
 
   ctx.fillStyle = '#64748B';
   ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText('Date :', 975, 490);
+  ctx.fillText('Date :', 960, 490);
   ctx.fillStyle = '#1E293B';
   ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText(formatDate(quote.refDate) || '-', 1040, 490);
+  ctx.fillText(formatDate(quote.refDate) || '-', 1025, 490);
 
   // 5. SALUTATION SECTION (Y: 520 to 600)
   ctx.beginPath();
@@ -143,15 +142,15 @@ export async function generateQuotationImageBlob(
   ctx.fillText('With reference to your above mentioned enquiry, we submit our lowest offer as follows.', leftX + 80, 585);
 
   // 6. TABLE HEADER & COLUMN GRID (Y: 605 to 1260)
+  // Adjusted column widths to give Amount column maximum breathing room (195px width)
+  const colX = [60, 140, 730, 830, 985, 1180];
+
   ctx.beginPath();
   ctx.moveTo(leftX, 605);
   ctx.lineTo(rightX, 605);
   ctx.moveTo(leftX, 650);
   ctx.lineTo(rightX, 650);
   ctx.stroke();
-
-  // Column X positions:
-  const colX = [60, 150, 800, 900, 1040, 1180];
 
   colX.forEach((x) => {
     ctx.beginPath();
@@ -164,11 +163,11 @@ export async function generateQuotationImageBlob(
   ctx.fillStyle = '#0F2C59';
   ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('S. No.', 105, 636);
-  ctx.fillText('Description', 475, 636);
-  ctx.fillText('Qty.', 850, 636);
-  ctx.fillText('Unit Rate', 970, 636);
-  ctx.fillText('Amount', 1110, 636);
+  ctx.fillText('S. No.', 100, 636);
+  ctx.fillText('Description', 435, 636);
+  ctx.fillText('Qty.', 780, 636);
+  ctx.fillText('Unit Rate', 907, 636);
+  ctx.fillText('Amount', 1082, 636);
 
   // Line items rendering
   let rowY = 690;
@@ -178,25 +177,25 @@ export async function generateQuotationImageBlob(
     ctx.fillStyle = '#334155';
     ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(String(item.srNo || idx + 1), 105, rowY);
+    ctx.fillText(String(item.srNo || idx + 1), 100, rowY);
 
     ctx.textAlign = 'left';
     ctx.fillStyle = '#0F172A';
     ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
-    const descLines = wrapText(ctx, item.description, 630);
+    const descLines = wrapText(ctx, item.description, 560);
     descLines.forEach((dl, di) => {
-      ctx.fillText(dl, 165, rowY + di * 26);
+      ctx.fillText(dl, 155, rowY + di * 26);
     });
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#1E293B';
     ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
-    ctx.fillText(String(item.quantity || 1), 850, rowY);
+    ctx.fillText(String(item.quantity || 1), 780, rowY);
 
     ctx.textAlign = 'right';
     ctx.fillStyle = '#334155';
     ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
-    ctx.fillText(formatCurrency(item.unitRate), 1025, rowY);
+    ctx.fillText(formatCurrency(item.unitRate), 970, rowY);
 
     ctx.fillStyle = '#0F2C59';
     ctx.font = 'bold 21px "Segoe UI", Inter, Arial, sans-serif';
@@ -222,7 +221,7 @@ export async function generateQuotationImageBlob(
   ctx.fillStyle = '#0F2C59';
   ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
   ctx.textAlign = 'right';
-  ctx.fillText('TOTAL', 1025, 1246);
+  ctx.fillText('TOTAL', 970, 1246);
   ctx.fillText(`₹ ${formatCurrency(quote.grandTotal)}`, 1165, 1246);
 
   // 7. TERMS & CONDITIONS AND SIGNATURE (Y: 1260 to 1610)
@@ -237,9 +236,9 @@ export async function generateQuotationImageBlob(
   ctx.font = 'bold 19px "Segoe UI", Inter, Arial, sans-serif';
 
   const termRows = [
-    { label: 'Warranty -', val: quote.warranty || '12 Months', y: 1295 },
-    { label: 'Packing forwarding : -', val: quote.packingForwarding || 'Included', y: 1340 },
-    { label: 'Freight :-', val: quote.freight || 'Extra', y: 1385 },
+    { label: 'Warranty -', val: quote.warranty || '12 Months against manufacturing defects', y: 1295 },
+    { label: 'Packing forwarding : -', val: quote.packingForwarding || 'Included in above rates', y: 1340 },
+    { label: 'Freight :-', val: quote.freight || 'Extra at actual / To Pay', y: 1385 },
     { label: 'Payment:-', val: quote.paymentTerms || '100% against delivery', y: 1430 },
   ];
 
@@ -250,7 +249,7 @@ export async function generateQuotationImageBlob(
 
     ctx.fillStyle = '#0F172A';
     ctx.font = '18px "Segoe UI", Inter, Arial, sans-serif';
-    ctx.fillText(tr.val, leftX + 225, tr.y);
+    ctx.fillText(tr.val, leftX + 215, tr.y);
 
     ctx.beginPath();
     ctx.moveTo(leftX, tr.y + 12);
@@ -282,7 +281,7 @@ export async function generateQuotationImageBlob(
 
     ctx.fillStyle = '#0F172A';
     ctx.font = 'bold 18px "Segoe UI", Inter, Arial, sans-serif';
-    ctx.fillText(rr.val, metaSplitX + 210, rr.y);
+    ctx.fillText(rr.val, metaSplitX + 200, rr.y);
 
     ctx.beginPath();
     ctx.moveTo(metaSplitX, rr.y + 12);
@@ -294,28 +293,28 @@ export async function generateQuotationImageBlob(
   ctx.textAlign = 'center';
   ctx.fillStyle = '#1E293B';
   ctx.font = 'bold 19px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText('Thanking you,', 950, 1435);
+  ctx.fillText('Thanking you,', 945, 1435);
 
   ctx.fillStyle = '#0F2C59';
   ctx.font = 'bold 21px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText('For APEX INDUSTRIES', 950, 1465);
+  ctx.fillText('For APEX INDUSTRIES', 945, 1465);
 
   // Stamp circle & signature
   ctx.save();
   ctx.strokeStyle = '#4338CA';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(950, 1515, 30, 0, Math.PI * 2);
+  ctx.arc(945, 1515, 30, 0, Math.PI * 2);
   ctx.stroke();
   ctx.fillStyle = '#4338CA';
   ctx.font = 'bold 8px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText('APEX INDUSTRIES', 950, 1512);
-  ctx.fillText('SANGLI', 950, 1528);
+  ctx.fillText('APEX INDUSTRIES', 945, 1512);
+  ctx.fillText('SANGLI', 945, 1528);
   ctx.restore();
 
   ctx.fillStyle = '#0F2C59';
   ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText(company.signatoryName || 'Mr. Dilip Mulay', 950, 1585);
+  ctx.fillText(company.signatoryName || 'Mr. Dilip Mulay', 945, 1585);
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
