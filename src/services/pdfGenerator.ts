@@ -3,8 +3,33 @@ import { CompanyDetails, Quotation, TemplateConfig } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
 /**
+ * Dynamic Auto-Fit Text Helper for jsPDF
+ * Dynamically shrinks font size so that large text never spills outside its box
+ */
+function drawAutoScaledText(
+  doc: jsPDF,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  maxFontSize: number,
+  minFontSize: number = 6,
+  options: { align?: 'left' | 'center' | 'right' } = {}
+): void {
+  if (!text) return;
+  let size = maxFontSize;
+  doc.setFontSize(size);
+  while (doc.getTextWidth(text) > maxWidth && size > minFontSize) {
+    size -= 0.4;
+    doc.setFontSize(size);
+  }
+  doc.text(text, x, y, options);
+}
+
+/**
  * High-Precision Vector PDF Generator
- * Exact 1:1 reproduction of the original Apex Industries physical quotation format.
+ * Exact 1:1 reproduction of the original Apex Industries physical quotation format
+ * with dynamic margins and responsive auto-scaling for large input values.
  */
 export function generateQuotationPDF(
   quote: Quotation,
@@ -75,8 +100,8 @@ export function generateQuotationPDF(
     doc.line(120, 63, 120, 89);
     // Horizontal split in Right box (Y = 76)
     doc.line(120, 76, rightX, 76);
-    // Vertical splits for Dates in Right box
-    doc.line(160, 63, 160, 89);
+    // Vertical splits for Dates in Right box: moved to 166 to provide 46mm for Q.No and Ref.No
+    doc.line(166, 63, 166, 89);
 
     // Static Customer Label
     doc.setFont('helvetica', 'bold');
@@ -87,10 +112,10 @@ export function generateQuotationPDF(
     // Static Quotation Details Labels
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.text('Q. No.', 123, 70);
-    doc.text('Date :', 163, 70);
-    doc.text('Ref. No.', 123, 83);
-    doc.text('Date :', 163, 83);
+    doc.text('Q. No.', 122.5, 70);
+    doc.text('Date :', 168.5, 70);
+    doc.text('Ref. No.', 122.5, 83);
+    doc.text('Date :', 168.5, 83);
 
     // 5. SALUTATION SECTION (Y: 89 to 102)
     doc.line(leftX, 89, rightX, 89);
@@ -189,38 +214,34 @@ export function generateQuotationPDF(
   }
 
   // ==========================================
-  // DYNAMIC DATA RENDERING (Uses template positions)
+  // DYNAMIC DATA RENDERING (With Dynamic Auto-Scaling)
   // ==========================================
 
-  // Customer Details
-  const cNamePos = pos.customerName || { x: 14, y: 73.5, fontSize: 10.5 };
+  // Customer Details: auto-scale so long customer names stay inside the 102mm box
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(cNamePos.fontSize || 10.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(quote.customerName || '', cNamePos.x, cNamePos.y);
+  drawAutoScaledText(doc, quote.customerName || '', 14, 73.5, 102, 10.5, 7.5);
 
-  const cAddrPos = pos.customerAddress || { x: 14, y: 79, fontSize: 9 };
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(cAddrPos.fontSize || 9);
-  const splitAddress = doc.splitTextToSize(quote.customerAddress || '', cAddrPos.width || 98);
-  doc.text(splitAddress, cAddrPos.x, cAddrPos.y);
+  doc.setFontSize(9);
+  const splitAddress = doc.splitTextToSize(quote.customerAddress || '', 102);
+  doc.text(splitAddress, 14, 79);
 
-  // Quotation Metadata
-  const qNoPos = pos.quoteNo || { x: 135, y: 70, fontSize: 9.5 };
+  // Quotation Metadata: auto-scale so long Q. No. and Ref. No. never cross into Date box
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(qNoPos.fontSize || 9.5);
-  doc.text(quote.quotationNo || '', qNoPos.x, qNoPos.y);
+  // Available width for Q. No.: from 134 to 164.5 = 30.5mm
+  drawAutoScaledText(doc, quote.quotationNo || '', 134, 70, 30.5, 9.5, 6);
 
-  const qDatePos = pos.quoteDate || { x: 175, y: 70, fontSize: 9.5 };
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(qDatePos.fontSize || 9.5);
-  doc.text(formatDate(quote.quotationDate), qDatePos.x, qDatePos.y);
+  doc.setFontSize(9.5);
+  doc.text(formatDate(quote.quotationDate), 179, 70);
 
-  const rNoPos = pos.refNo || { x: 136, y: 83, fontSize: 9.5 };
-  doc.text(quote.refNo || '-', rNoPos.x, rNoPos.y);
+  // Available width for Ref. No.: from 136 to 164.5 = 28.5mm
+  drawAutoScaledText(doc, quote.refNo || '-', 136, 83, 28.5, 9, 6);
 
-  const rDatePos = pos.refDate || { x: 175, y: 83, fontSize: 9.5 };
-  doc.text(formatDate(quote.refDate) || '-', rDatePos.x, rDatePos.y);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.text(formatDate(quote.refDate) || '-', 179, 83);
 
   // Line Items in Table (Generous padding below header line Y = 110)
   let currentY = 116.5;
@@ -242,60 +263,58 @@ export function generateQuotationPDF(
     // Qty
     doc.text(String(item.quantity || 1), 134.5, currentY, { align: 'center' });
 
-    // Unit Rate
-    doc.text(formatCurrency(item.unitRate), 166, currentY, { align: 'right' });
+    // Unit Rate (Auto-scaled so large numbers fit in 22mm)
+    drawAutoScaledText(doc, formatCurrency(item.unitRate), 166, currentY, 21, 9.5, 7, { align: 'right' });
 
-    // Amount
+    // Amount (Auto-scaled so large numbers fit in 30mm)
     doc.setFont('helvetica', 'bold');
-    doc.text(formatCurrency(item.amount), 198, currentY, { align: 'right' });
+    drawAutoScaledText(doc, formatCurrency(item.amount), 198, currentY, 29, 9.5, 7, { align: 'right' });
 
     // Advance Y coordinate based on number of lines in description
     const linesCount = Array.isArray(descLines) ? descLines.length : 1;
     currentY += Math.max(linesCount * 4.5 + 2.5, 7.5);
   });
 
-  // Grand Total in Amount column
+  // Grand Total in Amount column (Auto-scaled so amounts in crores/lakhs never cross line)
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.text(formatCurrency(quote.grandTotal), 198, 215.5, { align: 'right' });
+  drawAutoScaledText(doc, formatCurrency(quote.grandTotal), 198, 215.5, 30, 10.5, 7.5, { align: 'right' });
 
-  // Terms & Conditions Dynamic Values
+  // Terms & Conditions Dynamic Values (Auto-scaled to prevent line collision)
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
 
-  // Warranty
+  // Warranty (Box: 31 to 118 = 87mm)
   if (quote.warranty) {
-    doc.text(quote.warranty, 31, 224);
+    drawAutoScaledText(doc, quote.warranty, 31, 224, 87, 9, 6.5);
   }
 
-  // Packing & Forwarding
+  // Packing & Forwarding (Box: 48 to 118 = 70mm)
   if (quote.packingForwarding) {
-    doc.text(quote.packingForwarding, 48, 230.5);
+    drawAutoScaledText(doc, quote.packingForwarding, 48, 230.5, 70, 9, 6.5);
   }
 
-  // Freight
+  // Freight (Box: 29 to 118 = 89mm)
   if (quote.freight) {
-    doc.text(quote.freight, 29, 237);
+    drawAutoScaledText(doc, quote.freight, 29, 237, 89, 9, 6.5);
   }
 
-  // Payment
+  // Payment (Box: 31 to 118 = 87mm)
   if (quote.paymentTerms) {
-    doc.text(quote.paymentTerms, 31, 243.5);
+    drawAutoScaledText(doc, quote.paymentTerms, 31, 243.5, 87, 9, 6.5);
   }
 
-  // Validity
+  // Validity (Box: 138 to 198 = 60mm)
   if (quote.validity) {
-    doc.text(quote.validity, 138, 224);
+    drawAutoScaledText(doc, quote.validity, 138, 224, 60, 9, 6.5);
   }
 
   // GST %
   doc.setFont('helvetica', 'bold');
   doc.text(String(quote.gstRate ?? 18), 154, 230.5);
 
-  // Delivery Period
+  // Delivery Period (Box: 150 to 198 = 48mm)
   doc.setFont('helvetica', 'normal');
   if (quote.deliveryPeriod) {
-    doc.text(quote.deliveryPeriod, 150, 237);
+    drawAutoScaledText(doc, quote.deliveryPeriod, 150, 237, 48, 9, 6.5);
   }
 
   // Signature Stamp & Name

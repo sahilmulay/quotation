@@ -2,8 +2,34 @@ import { CompanyDetails, Quotation } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
 /**
+ * Dynamic Auto-Fit Text Helper for HTML5 Canvas
+ * Dynamically shrinks font size so that large text never spills outside its box
+ */
+function drawAutoScaledCanvasText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  maxFontSize: number,
+  minFontSize: number = 11,
+  fontWeight: string = 'bold',
+  fontFamily: string = '"Segoe UI", Inter, Arial, sans-serif'
+): void {
+  if (!text) return;
+  let fontSize = maxFontSize;
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  while (ctx.measureText(text).width > maxWidth && fontSize > minFontSize) {
+    fontSize -= 0.5;
+    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  }
+  ctx.fillText(text, x, y);
+}
+
+/**
  * High-DPI Canvas Image Generator for Quotations
- * Produces crisp, print-ready JPG/PNG images with generous column margins.
+ * Produces crisp, print-ready JPG/PNG images with dynamic auto-scaling
+ * for large quotation numbers, reference numbers, customer names, and amounts.
  */
 export async function generateQuotationImageBlob(
   quote: Quotation,
@@ -73,25 +99,25 @@ export async function generateQuotationImageBlob(
   ctx.stroke();
 
   // 4. CUSTOMER & QUOTATION DETAILS BOX (Y: 370 to 520)
-  const metaSplitX = 700;
+  const metaSplitX = 690;
+  const dateSplitX = 990; // Generous space for Q. No and Ref. No
   ctx.beginPath();
   ctx.moveTo(metaSplitX, 370);
   ctx.lineTo(metaSplitX, 520);
   ctx.moveTo(metaSplitX, 445);
   ctx.lineTo(rightX, 445);
-  ctx.moveTo(945, 370);
-  ctx.lineTo(945, 520);
+  ctx.moveTo(dateSplitX, 370);
+  ctx.lineTo(dateSplitX, 520);
   ctx.stroke();
 
-  // Customer details (Left side)
+  // Customer details (Left side: 60 to 690 = 630px)
   ctx.textAlign = 'left';
   ctx.fillStyle = '#1E293B';
   ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
   ctx.fillText('To,', leftX + 24, 405);
 
   ctx.fillStyle = '#0F2C59';
-  ctx.font = 'bold 24px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText(quote.customerName, leftX + 24, 440);
+  drawAutoScaledCanvasText(ctx, quote.customerName || '', leftX + 24, 440, 580, 24, 15, 'bold');
 
   ctx.fillStyle = '#475569';
   ctx.font = '19px "Segoe UI", Inter, Arial, sans-serif';
@@ -101,33 +127,35 @@ export async function generateQuotationImageBlob(
   });
 
   // Quotation Meta (Right side)
+  // Q. No. available space: 775 to 975 = 200px
   ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
   ctx.fillStyle = '#64748B';
   ctx.fillText('Q. No.', metaSplitX + 15, 415);
   ctx.fillStyle = '#0F2C59';
-  ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText(quote.quotationNo, metaSplitX + 90, 415);
+  drawAutoScaledCanvasText(ctx, quote.quotationNo || '', metaSplitX + 85, 415, 205, 22, 12, 'bold');
 
+  // Date 1: 990 to 1180 = 190px
   ctx.fillStyle = '#64748B';
   ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText('Date :', 960, 415);
+  ctx.fillText('Date :', dateSplitX + 15, 415);
   ctx.fillStyle = '#1E293B';
   ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText(formatDate(quote.quotationDate), 1025, 415);
+  ctx.fillText(formatDate(quote.quotationDate), dateSplitX + 75, 415);
 
+  // Ref. No. available space: 795 to 975 = 180px
   ctx.fillStyle = '#64748B';
   ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
   ctx.fillText('Ref. No. :', metaSplitX + 15, 490);
   ctx.fillStyle = '#1E293B';
-  ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText(quote.refNo || '-', metaSplitX + 105, 490);
+  drawAutoScaledCanvasText(ctx, quote.refNo || '-', metaSplitX + 105, 490, 185, 20, 12, 'bold');
 
+  // Date 2
   ctx.fillStyle = '#64748B';
   ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText('Date :', 960, 490);
+  ctx.fillText('Date :', dateSplitX + 15, 490);
   ctx.fillStyle = '#1E293B';
   ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText(formatDate(quote.refDate) || '-', 1025, 490);
+  ctx.fillText(formatDate(quote.refDate) || '-', dateSplitX + 75, 490);
 
   // 5. SALUTATION SECTION (Y: 520 to 600)
   ctx.beginPath();
@@ -248,8 +276,7 @@ export async function generateQuotationImageBlob(
     ctx.fillText(tr.label, leftX + 20, tr.y);
 
     ctx.fillStyle = '#0F172A';
-    ctx.font = '18px "Segoe UI", Inter, Arial, sans-serif';
-    ctx.fillText(tr.val, leftX + 215, tr.y);
+    drawAutoScaledCanvasText(ctx, tr.val, leftX + 215, tr.y, 440, 18, 12, 'normal');
 
     ctx.beginPath();
     ctx.moveTo(leftX, tr.y + 12);
@@ -280,8 +307,7 @@ export async function generateQuotationImageBlob(
     ctx.fillText(rr.label, metaSplitX + 20, rr.y);
 
     ctx.fillStyle = '#0F172A';
-    ctx.font = 'bold 18px "Segoe UI", Inter, Arial, sans-serif';
-    ctx.fillText(rr.val, metaSplitX + 200, rr.y);
+    drawAutoScaledCanvasText(ctx, rr.val, metaSplitX + 200, rr.y, 250, 18, 12, 'bold');
 
     ctx.beginPath();
     ctx.moveTo(metaSplitX, rr.y + 12);

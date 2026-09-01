@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { CompanyDetails, Quotation, TemplateConfig } from '../../types';
 import { downloadQuotationPDF, printQuotationPDF } from '../../services/pdfGenerator';
 import { downloadQuotationJPG, generateQuotationImageBlob } from '../../services/imageGenerator';
+import { openSystemShareSheet } from '../../services/shareService';
 import { 
   Printer, 
   CheckCircle2, 
   FileCheck, 
   FileDown, 
   Check,
-  Eye
+  Eye,
+  Share2
 } from 'lucide-react';
 
 interface Step5GenerateReviewProps {
@@ -70,6 +72,14 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
     }
   };
 
+  const handleShare = async () => {
+    const res = await openSystemShareSheet(quote, company, template);
+    if (res.method === 'fallback') {
+      setToastMessage('📄 PDF saved to Downloads & opening share!');
+      setTimeout(() => setToastMessage(null), 3500);
+    }
+  };
+
   const handlePrint = () => {
     printQuotationPDF(quote, company, template, 'full');
   };
@@ -93,8 +103,8 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
             5
           </div>
           <div>
-            <h3 className="font-bold text-slate-800 text-sm">Download & Print Quotation</h3>
-            <p className="text-xs text-slate-500">Save as PDF & Photo (JPG) directly in your gallery</p>
+            <h3 className="font-bold text-slate-800 text-sm">Download & Share Quotation</h3>
+            <p className="text-xs text-slate-500">Save as PDF & Photo (JPG) or share to any app</p>
           </div>
         </div>
 
@@ -112,15 +122,26 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
         </div>
       )}
 
-      {/* Single Combined Download Button: Photo & PDF */}
-      <div>
+      {/* Primary Action Buttons: Download & Share */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        {/* Download Photo & PDF */}
         <button
           type="button"
           onClick={handleDownloadPhotoAndPDF}
-          className="w-full py-4 px-4 bg-[#0F2C59] hover:bg-[#1E3A8A] text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition"
+          className="py-3.5 px-4 bg-[#0F2C59] hover:bg-[#1E3A8A] text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition"
         >
           <FileDown className="w-5 h-5 text-sky-300" />
           <span>Download Photo & PDF</span>
+        </button>
+
+        {/* Share Button (Opens Android/iOS System Share Drawer) */}
+        <button
+          type="button"
+          onClick={handleShare}
+          className="py-3.5 px-4 bg-sky-600 hover:bg-sky-700 text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition"
+        >
+          <Share2 className="w-5 h-5 text-sky-100" />
+          <span>Share Quotation</span>
         </button>
       </div>
 
