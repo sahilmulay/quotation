@@ -33,6 +33,13 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
   const [isSaved, setIsSaved] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Auto-save quotation automatically as soon as the user arrives at Step 5
+  useEffect(() => {
+    onSave()
+      .then(() => setIsSaved(true))
+      .catch((err) => console.error('Auto-save on Step 5 error:', err));
+  }, []);
+
   // Generate crisp visual image preview for 100% mobile compatibility
   useEffect(() => {
     let active = true;
@@ -57,31 +64,51 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
 
   const handleDownloadPhotoAndPDF = async () => {
     try {
-      // 1. Download official vector PDF
+      // 1. Auto-save quotation
+      await onSave();
+      setIsSaved(true);
+
+      // 2. Download official vector PDF
       downloadQuotationPDF(quote, company, template, 'full');
 
-      // 2. Download high-resolution JPG image (for Gallery / Photos)
+      // 3. Download high-resolution JPG image (for Gallery / Photos)
       await downloadQuotationJPG(quote, company);
 
-      setToastMessage('📸 Photo (JPG) & 📄 PDF downloaded successfully!');
+      setToastMessage('📸 Photo & 📄 PDF downloaded & saved to Quotations!');
       setTimeout(() => setToastMessage(null), 4000);
     } catch (err) {
       console.error('Error downloading:', err);
-      setToastMessage('📄 PDF downloaded successfully!');
+      setToastMessage('📄 PDF downloaded & saved to Quotations!');
       setTimeout(() => setToastMessage(null), 3500);
     }
   };
 
   const handleShare = async () => {
-    const res = await openSystemShareSheet(quote, company, template);
-    if (res.method === 'fallback') {
-      setToastMessage('📄 PDF saved to Downloads & opening share!');
-      setTimeout(() => setToastMessage(null), 3500);
+    try {
+      // Auto-save quotation before sharing
+      await onSave();
+      setIsSaved(true);
+
+      const res = await openSystemShareSheet(quote, company, template);
+      if (res.method === 'fallback') {
+        setToastMessage('📄 PDF saved to Quotations & opening share!');
+        setTimeout(() => setToastMessage(null), 3500);
+      }
+    } catch (err) {
+      console.error('Share error:', err);
     }
   };
 
-  const handlePrint = () => {
-    printQuotationPDF(quote, company, template, 'full');
+  const handlePrint = async () => {
+    try {
+      // Auto-save quotation before printing
+      await onSave();
+      setIsSaved(true);
+
+      printQuotationPDF(quote, company, template, 'full');
+    } catch (err) {
+      console.error('Print error:', err);
+    }
   };
 
   const handleSaveAndDone = async () => {
@@ -91,7 +118,7 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
     setIsSaved(true);
     setTimeout(() => {
       onFinish();
-    }, 600);
+    }, 500);
   };
 
   return (
@@ -104,13 +131,19 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
           </div>
           <div>
             <h3 className="font-bold text-slate-800 text-sm">Download & Share Quotation</h3>
-            <p className="text-xs text-slate-500">Save as PDF & Photo (JPG) or share to any app</p>
+            <p className="text-xs text-slate-500">Auto-saved to Quotations • Download as PDF & Photo</p>
           </div>
         </div>
 
-        <span className="px-2.5 py-1 text-xs font-extrabold bg-emerald-100 text-emerald-800 rounded-full border border-emerald-300 flex items-center gap-1">
+        <span
+          className={`px-2.5 py-1 text-xs font-extrabold rounded-full border flex items-center gap-1 ${
+            isSaved
+              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+              : 'bg-sky-100 text-sky-800 border-sky-300'
+          }`}
+        >
           <FileCheck className="w-3.5 h-3.5" />
-          <span>Ready</span>
+          <span>{isSaved ? 'Auto-Saved' : 'Saving...'}</span>
         </span>
       </div>
 
@@ -124,7 +157,7 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
 
       {/* Primary Action Buttons: Download & Share */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        {/* Download Photo & PDF */}
+        {/* Download Photo & PDF (Auto-saves) */}
         <button
           type="button"
           onClick={handleDownloadPhotoAndPDF}
@@ -134,7 +167,7 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
           <span>Download Photo & PDF</span>
         </button>
 
-        {/* Share Button (Opens Android/iOS System Share Drawer) */}
+        {/* Share Button (Auto-saves & Opens Native Share Drawer) */}
         <button
           type="button"
           onClick={handleShare}
@@ -147,7 +180,7 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
 
       {/* Secondary Actions: Print & Save */}
       <div className="grid grid-cols-2 gap-2.5">
-        {/* Print Document */}
+        {/* Print Document (Auto-saves) */}
         <button
           type="button"
           onClick={handlePrint}
@@ -162,14 +195,10 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
           type="button"
           onClick={handleSaveAndDone}
           disabled={isSaving}
-          className={`py-3 px-3 rounded-xl font-bold text-xs border flex items-center justify-center gap-2 transition active:scale-[0.98] ${
-            isSaved
-              ? 'bg-emerald-600 text-white border-emerald-600'
-              : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50 shadow-xs'
-          }`}
+          className="py-3 px-3 rounded-xl font-bold text-xs border flex items-center justify-center gap-2 transition active:scale-[0.98] bg-emerald-600 text-white border-emerald-600 shadow-xs"
         >
-          <CheckCircle2 className={`w-4 h-4 ${isSaved ? 'text-white' : 'text-emerald-600'}`} />
-          <span>{isSaving ? 'Saving...' : isSaved ? 'Saved to Records!' : 'Save & Finish'}</span>
+          <CheckCircle2 className="w-4 h-4 text-white" />
+          <span>{isSaving ? 'Saving...' : 'Saved • View All'}</span>
         </button>
       </div>
 

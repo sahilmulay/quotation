@@ -58,7 +58,7 @@ export const QuotationWizard: React.FC<QuotationWizardProps> = ({
     initialQuotation?.packingForwarding || 'Included in above rates'
   );
   const [freight, setFreight] = useState<string>(
-    initialQuotation?.freight || 'Extra / To Pay'
+    initialQuotation?.freight || 'Extra at actual / To Pay'
   );
   const [paymentTerms, setPaymentTerms] = useState<string>(
     initialQuotation?.paymentTerms || '100% against delivery'
@@ -111,7 +111,7 @@ export const QuotationWizard: React.FC<QuotationWizardProps> = ({
     updatedAt: Date.now(),
   };
 
-  // Save Quotation to Dexie DB
+  // Robust Save Quotation to Dexie DB (prevents duplicates and auto-links customer)
   const handleSaveQuotation = async () => {
     if (customerName.trim()) {
       const existingCustomer = await db.customers.where('name').equalsIgnoreCase(customerName.trim()).first();
@@ -125,11 +125,25 @@ export const QuotationWizard: React.FC<QuotationWizardProps> = ({
     }
 
     if (quotationId) {
-      await db.quotations.put(currentQuote);
+      await db.quotations.put({
+        ...currentQuote,
+        id: quotationId,
+        updatedAt: Date.now(),
+      });
     } else {
-      const newId = await db.quotations.add(currentQuote);
-      setQuotationId(Number(newId));
-      await incrementQuotationCounter();
+      const existing = await db.quotations.where('quotationNo').equals(quotationNo.trim()).first();
+      if (existing && existing.id) {
+        setQuotationId(existing.id);
+        await db.quotations.put({
+          ...currentQuote,
+          id: existing.id,
+          updatedAt: Date.now(),
+        });
+      } else {
+        const newId = await db.quotations.add(currentQuote);
+        setQuotationId(Number(newId));
+        await incrementQuotationCounter();
+      }
     }
   };
 
