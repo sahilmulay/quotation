@@ -1,20 +1,25 @@
 import Dexie, { Table } from 'dexie';
-import { AppBackup, CompanyDetails, Customer, Quotation, TemplateConfig } from '../types';
-import { DEFAULT_COMPANY_DETAILS, DEFAULT_TEMPLATE_CONFIG, SAMPLE_CUSTOMERS, SAMPLE_QUOTATIONS } from './defaultData';
+import { AppBackup, Customer, CompanyDetails, Quotation, TemplateConfig } from '../types';
+import { 
+  DEFAULT_COMPANY_DETAILS, 
+  DEFAULT_TEMPLATE_CONFIG, 
+  SAMPLE_CUSTOMERS, 
+  SAMPLE_QUOTATIONS 
+} from './defaultData';
 
 export class ApexDatabase extends Dexie {
-  quotations!: Table<Quotation, number>;
   customers!: Table<Customer, number>;
+  quotations!: Table<Quotation, number>;
   companyDetails!: Table<CompanyDetails & { id: string }, string>;
   templateConfigs!: Table<TemplateConfig, number>;
 
   constructor() {
     super('ApexQuotationDB');
     this.version(1).stores({
-      quotations: '++id, quotationNo, quotationDate, customerName, status, createdAt',
       customers: '++id, name, phone, email, createdAt',
+      quotations: '++id, quotationNo, customerName, quotationDate, status, createdAt',
       companyDetails: 'id',
-      templateConfigs: '++id, name',
+      templateConfigs: '++id, name, isDefault',
     });
   }
 }
@@ -78,13 +83,29 @@ export async function saveCompanyDetails(details: CompanyDetails): Promise<void>
   }
 }
 
-// Next Quotation Number auto-suggestion
+// Next Quotation Number auto-suggestion (Calculates above all existing quotes in history)
 export async function getNextSuggestedQuotationNo(): Promise<string> {
   try {
     const company = await getCompanyDetails();
     const prefix = company.quotePrefix || 'Q-';
-    const nextNum = company.nextQuoteNumber || 101;
-    return `${prefix}${nextNum}`;
+    
+    // Find highest quote number in existing DB records
+    const allQuotes = await db.quotations.toArray();
+    let maxNum = company.nextQuoteNumber ? company.nextQuoteNumber - 1 : 100;
+    
+    allQuotes.forEach((q) => {
+      if (q.quotationNo) {
+        const match = q.quotationNo.match(/\d+/g);
+        if (match) {
+          const lastDigits = parseInt(match[match.length - 1], 10);
+          if (lastDigits > maxNum && lastDigits < 1000000) {
+            maxNum = lastDigits;
+          }
+        }
+      }
+    });
+
+    return `${prefix}${maxNum + 1}`;
   } catch {
     return 'Q-101';
   }
@@ -110,7 +131,7 @@ export async function getActiveTemplateConfig(): Promise<TemplateConfig> {
       return all[0];
     }
   } catch (err) {
-    console.error('Error loading template config:', err);
+    console.error('Error fetching template config:', err);
   }
   return DEFAULT_TEMPLATE_CONFIG;
 }
@@ -136,6 +157,18 @@ export async function saveActiveTemplateConfig(config: TemplateConfig): Promise<
   }
 }
 
+export async function saveTemplateConfig(config: TemplateConfig): Promise<void> {
+  try {
+    if (config.id) {
+      await db.templateConfigs.put(config);
+    } else {
+      await db.templateConfigs.add(config);
+    }
+  } catch (err) {
+    console.error('Error saving template config:', err);
+  }
+}
+
 export async function resetTemplateToDefault(): Promise<TemplateConfig> {
   try {
     const all = await db.templateConfigs.toArray();
@@ -152,6 +185,40 @@ export async function resetTemplateToDefault(): Promise<TemplateConfig> {
     console.error('Error resetting template:', err);
   }
   return DEFAULT_TEMPLATE_CONFIG;
+}
+
+// Customer helpers
+export async function searchCustomers(query: string): Promise<Customer[]> {
+  try {
+    if (!query.trim()) {
+      return await db.customers.limit(10).toArray();
+    }
+    return await db.customers
+      .filter(
+        (c) =>
+          c.name.toLowerCase().includes(query.toLowerCase()) ||
+          (c.address && c.address.toLowerCase().includes(query.toLowerCase())) ||
+          (c.phone ? c.phone.includes(query) : false)
+      )
+      .limit(10)
+      .toArray();
+  } catch (err) {
+    console.error('Error searching customers:', err);
+    return [];
+  }
+}
+
+export async function saveCustomer(customer: Omit<Customer, 'id'> & { id?: number }): Promise<number | undefined> {
+  try {
+    if (customer.id) {
+      await db.customers.put(customer as Customer);
+      return customer.id;
+    } else {
+      return (await db.customers.add(customer as Customer)) as number;
+    }
+  } catch (err) {
+    console.error('Error saving customer:', err);
+  }
 }
 
 // Full Backup & Restore (JSON)

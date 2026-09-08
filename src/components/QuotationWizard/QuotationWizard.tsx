@@ -111,8 +111,9 @@ export const QuotationWizard: React.FC<QuotationWizardProps> = ({
     updatedAt: Date.now(),
   };
 
-  // Robust Save Quotation to Dexie DB (prevents duplicates and auto-links customer)
-  const handleSaveQuotation = async () => {
+  // Robust Save Quotation to Dexie DB (ensures every new quotation is saved into history)
+  const handleSaveQuotation = async (): Promise<void> => {
+    // 1. Auto-save / link customer
     if (customerName.trim()) {
       const existingCustomer = await db.customers.where('name').equalsIgnoreCase(customerName.trim()).first();
       if (!existingCustomer) {
@@ -124,26 +125,24 @@ export const QuotationWizard: React.FC<QuotationWizardProps> = ({
       }
     }
 
+    // 2. Save or update quotation in DB history
     if (quotationId) {
+      // Update existing record
       await db.quotations.put({
         ...currentQuote,
         id: quotationId,
         updatedAt: Date.now(),
       });
     } else {
-      const existing = await db.quotations.where('quotationNo').equals(quotationNo.trim()).first();
-      if (existing && existing.id) {
-        setQuotationId(existing.id);
-        await db.quotations.put({
-          ...currentQuote,
-          id: existing.id,
-          updatedAt: Date.now(),
-        });
-      } else {
-        const newId = await db.quotations.add(currentQuote);
-        setQuotationId(Number(newId));
-        await incrementQuotationCounter();
-      }
+      // Brand new quotation: always add a new record to history!
+      const newId = await db.quotations.add({
+        ...currentQuote,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      const numId = Number(newId);
+      setQuotationId(numId);
+      await incrementQuotationCounter();
     }
   };
 
@@ -200,13 +199,19 @@ export const QuotationWizard: React.FC<QuotationWizardProps> = ({
 
   const isCurrentStepValid = validateStep(currentStep).valid;
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     const check = validateStep(currentStep);
     if (!check.valid) {
       setStepError(check.error || 'Please fill required fields before proceeding.');
       return;
     }
     setStepError(null);
+
+    // Auto-save whenever proceeding to the last step (Step 5)
+    if (currentStep === 4) {
+      await handleSaveQuotation();
+    }
+
     setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -214,6 +219,25 @@ export const QuotationWizard: React.FC<QuotationWizardProps> = ({
   const handlePrevStep = () => {
     setStepError(null);
     setCurrentStep((prev) => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleStepJump = async (stepNum: number) => {
+    if (stepNum > currentStep) {
+      // Validate up to target
+      for (let i = 1; i < stepNum; i++) {
+        const check = validateStep(i);
+        if (!check.valid) {
+          setStepError(check.error || `Please complete Step ${i} first.`);
+          return;
+        }
+      }
+      if (stepNum === 5) {
+        await handleSaveQuotation();
+      }
+    }
+    setStepError(null);
+    setCurrentStep(stepNum);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -246,14 +270,17 @@ export const QuotationWizard: React.FC<QuotationWizardProps> = ({
           </button>
         </div>
 
-        {/* Progress Line */}
-        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex gap-1 p-0.5">
+        {/* Clickable Progress Line */}
+        <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex gap-1 p-0.5">
           {[1, 2, 3, 4, 5].map((step) => (
-            <div
+            <button
               key={step}
-              className={`flex-1 h-full rounded-full transition-all duration-300 ${
-                step <= currentStep ? 'bg-[#0F2C59]' : 'bg-slate-200'
+              type="button"
+              onClick={() => handleStepJump(step)}
+              className={`flex-1 h-full rounded-full transition-all duration-300 cursor-pointer ${
+                step <= currentStep ? 'bg-[#0F2C59]' : 'bg-slate-200 hover:bg-slate-300'
               }`}
+              title={`Jump to Step ${step}`}
             />
           ))}
         </div>
