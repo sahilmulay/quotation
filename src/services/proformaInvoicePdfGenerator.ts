@@ -2,6 +2,10 @@ import { jsPDF } from 'jspdf';
 import { CompanyDetails, ProformaInvoice } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
+/**
+ * Dynamic Auto-Fit Text Helper for jsPDF
+ * Dynamically shrinks font size so that large text never spills outside its box
+ */
 function drawAutoScaledText(
   doc: jsPDF,
   text: string,
@@ -22,29 +26,49 @@ function drawAutoScaledText(
   doc.text(text, x, y, options);
 }
 
-export function generateProformaInvoicePDF(pi: ProformaInvoice, company: CompanyDetails): jsPDF {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+/**
+ * High-Precision Vector PDF Generator for Proforma Invoice
+ * Exact 1:1 reproduction with dedicated Company Bank Details in Commercial Terms
+ */
+export function generateProformaInvoicePDF(
+  pi: ProformaInvoice,
+  company: CompanyDetails
+): jsPDF {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
 
+  // Standard Page Bounds: 210mm x 297mm
   const leftX = 10;
   const rightX = 200;
   const topY = 28;
-  const pageWidth = rightX - leftX;
+  const pageWidth = rightX - leftX; // 190mm
 
-  // Title
+  // ==========================================
+  // 1. TOP HEADER: "PROFORMA INVOICE"
+  // ==========================================
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.setTextColor(15, 44, 89);
+  doc.setTextColor(15, 44, 89); // Deep Apex Navy
   doc.text('PROFORMA INVOICE', 105, 20, { align: 'center' });
+
+  // Underline below PROFORMA INVOICE
   doc.setLineWidth(0.4);
   doc.setDrawColor(15, 44, 89);
-  doc.line(72, 22, 138, 22);
+  doc.line(74, 22, 136, 22);
 
-  // Outer border
-  doc.setDrawColor(30, 41, 59);
+  // ==========================================
+  // 2. MAIN OUTER BORDER (190mm x 244mm) -> Y: 28 to 272
+  // ==========================================
+  doc.setDrawColor(30, 41, 59); // Slate-800
   doc.setLineWidth(0.5);
   doc.rect(leftX, topY, pageWidth, 244);
 
-  // Company Header
+  // ==========================================
+  // 3. COMPANY HEADER BOX (Y: 28 to 63)
+  // ==========================================
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14.5);
   doc.setTextColor(15, 44, 89);
@@ -53,245 +77,295 @@ export function generateProformaInvoicePDF(pi: ProformaInvoice, company: Company
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(51, 65, 85);
-  doc.text(company.address || '', 105, 41.5, { align: 'center' });
-  doc.text(`Mobile No – ${company.phones || ''}`, 105, 46.5, { align: 'center' });
-  doc.text(`e-mail ${company.email || ''}`, 105, 51.5, { align: 'center' });
+  doc.text(company.address || 'E-9, MIDC, Kupwad, SANGLI – 416436 (MS)', 105, 41.5, { align: 'center' });
+  doc.text(`Mobile No – ${company.phones || '9850060698 / 8855003009'}`, 105, 46.5, { align: 'center' });
+  doc.text(`e-mail ${company.email || 'apexindustries92@gmail.com'}`, 105, 51.5, { align: 'center' });
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(15, 44, 89);
-  doc.text(`GSTN No -${company.gstn || ''}`, 105, 57, { align: 'center' });
+  doc.text(`GSTN No -${company.gstn || '27ABDPM6031D1Z1'}`, 105, 57, { align: 'center' });
 
-  // Line below header
+  // Horizontal line below header (Y = 63)
   doc.setDrawColor(30, 41, 59);
   doc.setLineWidth(0.4);
   doc.line(leftX, 63, rightX, 63);
 
-  // Customer / PI details box (Y: 63 to 89)
+  // ==========================================
+  // 4. CUSTOMER & PI DETAILS BOX (Y: 63 to 89)
+  // ==========================================
+  // Vertical split at X = 120 (Left = Customer, Right = PI Meta)
   doc.line(120, 63, 120, 89);
+  // Horizontal split in Right box (Y = 76)
+  doc.line(120, 76, rightX, 76);
+  // Vertical split for Dates in Right box: at 166
+  doc.line(166, 63, 166, 89);
 
-  // "To,"
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(51, 65, 85);
-  doc.text('To,', 14, 69);
-
-  // Customer name
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.setTextColor(15, 44, 89);
-  drawAutoScaledText(doc, pi.customerName || '', 14, 75, 100, 10.5, 7);
-
-  // Customer address
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(51, 65, 85);
-  const addrLines = doc.splitTextToSize(pi.customerAddress || '', 100);
-  doc.text(addrLines.slice(0, 2), 14, 81);
-
-  // PI No & Date (right box)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(51, 65, 85);
-  doc.text('P.I. No.', 122, 69);
-  doc.line(120, 74, rightX, 74);
-
-  doc.setFont('helvetica', 'normal');
-  doc.text('Ref. No. :', 122, 81);
-  doc.line(120, 85, rightX, 85);
-
-  // PI No value
+  // Static Customer Label
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
-  doc.setTextColor(15, 44, 89);
-  drawAutoScaledText(doc, pi.piNo || '', 138, 69, 28, 9.5, 6.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text('To,', 14, 68.5);
 
-  // Date
+  // Static PI Details Labels
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(51, 65, 85);
-  doc.text('Date :', 165, 69);
-  doc.setFont('helvetica', 'bold');
-  drawAutoScaledText(doc, formatDate(pi.piDate) || '', 177, 69, 20, 9, 6.5);
+  doc.text('P.I. No.', 122.5, 70);
+  doc.text('Date :', 168.5, 70);
+  doc.text('Ref. No.', 122.5, 83);
+  doc.text('Date :', 168.5, 83);
 
-  // Ref No
+  // Dynamic Customer Details
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(15, 23, 42);
+  drawAutoScaledText(doc, pi.customerName || '', 14, 73.5, 102, 10.5, 7.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  const splitAddress = doc.splitTextToSize(pi.customerAddress || '', 102);
+  doc.text(splitAddress, 14, 79);
+
+  // Dynamic PI Metadata
+  doc.setFont('helvetica', 'bold');
+  drawAutoScaledText(doc, pi.piNo || '', 134, 70, 30.5, 9.5, 6);
+
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.setTextColor(15, 44, 89);
-  drawAutoScaledText(doc, pi.refNo || '', 138, 81, 28, 9.5, 6.5);
+  doc.text(formatDate(pi.piDate), 179, 70);
 
-  // Ref Date
+  drawAutoScaledText(doc, pi.refNo || '-', 136, 83, 28.5, 9, 6);
+
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(51, 65, 85);
-  doc.text('Date :', 165, 81);
-  doc.setFont('helvetica', 'bold');
-  drawAutoScaledText(doc, pi.refDate ? formatDate(pi.refDate) : '', 177, 81, 20, 9, 6.5);
+  doc.setFontSize(9.5);
+  doc.text(formatDate(pi.refDate) || '-', 179, 83);
 
-  // Horizontal line at Y = 89
-  doc.setDrawColor(30, 41, 59);
-  doc.setLineWidth(0.4);
+  // ==========================================
+  // 5. SALUTATION SECTION (Y: 89 to 102)
+  // ==========================================
   doc.line(leftX, 89, rightX, 89);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text('Dear Sir,', 14, 94.5);
 
-  // "Dear Sir" line
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(51, 65, 85);
-  doc.text('Dear Sir,', 14, 93.5);
-  doc.text('With reference to your above mentioned enquiry, we submit our lowest offer as follows.', 25, 97);
-  doc.line(leftX, 99, rightX, 99);
+  doc.text(
+    'With reference to your above mentioned enquiry, we submit our lowest offer as follows.',
+    24,
+    99.5
+  );
 
-  // Items Table Header
-  const colSNo = leftX;
-  const colDesc = 23;
-  const colQty = 128;
-  const colRate = 148;
-  const colAmt = 175;
+  // ==========================================
+  // 6. TABLE HEADER & COLUMN STRUCTURE (Y: 102 to 218)
+  // ==========================================
+  doc.line(leftX, 102, rightX, 102);
+  doc.line(leftX, 110, rightX, 110);
 
-  doc.setDrawColor(30, 41, 59);
-  doc.setLineWidth(0.3);
-  doc.line(colDesc - 1, 99, colDesc - 1, 265);
-  doc.line(colQty - 1, 99, colQty - 1, 265);
-  doc.line(colRate - 1, 99, colRate - 1, 265);
-  doc.line(colAmt - 1, 99, colAmt - 1, 265);
+  const colX = [10, 25, 125, 144, 168, 200];
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(15, 44, 89);
-  doc.text('S. No.', colSNo + 1, 104, { maxWidth: 12 });
-  doc.text('Description', 75, 104, { align: 'center', maxWidth: 100 });
-  doc.text('Qty.', colQty + 8, 104, { align: 'center' });
-  doc.text('Unit Rate', colRate + 10, 104, { align: 'center' });
-  doc.text('Amount', colAmt + 11, 104, { align: 'center' });
-
-  doc.line(leftX, 106, rightX, 106);
-
-  // Items
-  let currentY = 112;
-  const lineHeight = 7;
-  const maxDescWidth = colQty - colDesc - 3;
-
-  pi.items.forEach((item) => {
-    if (!item.description.trim()) return;
-    const descLines = doc.splitTextToSize(item.description, maxDescWidth);
-    const rowHeight = Math.max(lineHeight, descLines.length * 4.5);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(String(item.srNo), colSNo + 3, currentY, { align: 'left' });
-
-    doc.setFont('helvetica', 'bold');
-    doc.text(descLines, colDesc + 1, currentY);
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(String(item.quantity), colQty + 10, currentY, { align: 'center' });
-    doc.text(`${formatCurrency(item.unitRate)}`, colRate + 20, currentY, { align: 'right' });
-
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${formatCurrency(item.amount)}`, rightX - 2, currentY, { align: 'right' });
-
-    currentY += rowHeight;
+  colX.forEach((x) => {
+    doc.line(x, 102, x, 210);
   });
 
-  // TOTAL row (Y = 265)
-  doc.setDrawColor(30, 41, 59);
-  doc.setLineWidth(0.4);
-  doc.line(leftX, 265, rightX, 265);
+  // Table Header Labels
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(15, 44, 89);
+  doc.text('S. No.', 17.5, 107, { align: 'center' });
+  doc.text('Description', 75, 107, { align: 'center' });
+  doc.text('Qty.', 134.5, 107, { align: 'center' });
+  doc.text('Unit Rate', 156, 107, { align: 'center' });
+  doc.text('Amount', 184, 107, { align: 'center' });
+
+  // Table items bottom line (Y = 210)
+  doc.line(leftX, 210, rightX, 210);
+
+  // TOTAL Row (Y: 210 to 218)
+  doc.line(colX[0], 210, colX[0], 218);
+  doc.line(colX[4], 210, colX[4], 218);
+  doc.line(colX[5], 210, colX[5], 218);
+  doc.line(leftX, 218, rightX, 218);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.setTextColor(15, 44, 89);
-  doc.text('TOTAL', colAmt - 2, 271, { align: 'right' });
+  doc.text('TOTAL', 165, 215.5, { align: 'right' });
+
+  // ==========================================
+  // DYNAMIC LINE ITEMS (Y: 116.5 to 208)
+  // ==========================================
+  let currentY = 116.5;
+  const rowMaxY = 208;
+
+  pi.items.forEach((item, index) => {
+    if (currentY >= rowMaxY) return;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(51, 65, 85);
+    doc.text(String(item.srNo || index + 1), 17.5, currentY, { align: 'center' });
+
+    const descWidth = 96;
+    const descLines = doc.splitTextToSize(item.description || '', descWidth);
+    doc.text(descLines, 27, currentY);
+
+    doc.text(String(item.quantity || 1), 134.5, currentY, { align: 'center' });
+
+    drawAutoScaledText(doc, formatCurrency(item.unitRate), 166, currentY, 21, 9.5, 7, { align: 'right' });
+
+    doc.setFont('helvetica', 'bold');
+    drawAutoScaledText(doc, formatCurrency(item.amount), 198, currentY, 29, 9.5, 7, { align: 'right' });
+
+    const linesCount = Array.isArray(descLines) ? descLines.length : 1;
+    currentY += Math.max(linesCount * 4.5 + 2.5, 7.5);
+  });
+
+  const piTotal =
+    pi.items && pi.items.length > 0
+      ? pi.items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
+      : (pi.subtotal || pi.grandTotal);
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  drawAutoScaledText(doc, `\u20B9 ${formatCurrency(pi.subtotal)}`, rightX - 2, 271, 28, 10.5, 7, { align: 'right' });
+  drawAutoScaledText(doc, formatCurrency(piTotal), 198, 215.5, 30, 10.5, 7.5, { align: 'right' });
 
-  // Terms footer
-  doc.setDrawColor(30, 41, 59);
-  doc.setLineWidth(0.4);
-  doc.line(leftX, 272, rightX, 272);
-  doc.line(100, 265, 100, 272);
+  // ==========================================
+  // 7. TERMS, BANK DETAILS & SIGNATURE (Y: 218 to 272)
+  // ==========================================
+  doc.line(120, 218, 120, 272); // Vertical divider
 
-  const leftTerms = [
-    [`Warranty -`, pi.warranty || ''],
-    [`Packing forwarding :`, pi.packingForwarding || ''],
-    [`Freight :-`, pi.freight || ''],
-    [`Payment:-`, pi.paymentTerms || ''],
-  ];
-
-  const rightTerms = [
-    [`Validity –`, pi.validity || '30 Days'],
-    [`Sales Tax :- GST @`, `${pi.gstRate}% Extra`],
-    [`Delivery Period :-`, pi.deliveryPeriod || ''],
-  ];
-
-  doc.setFontSize(8);
+  // Left Column: Terms + Bank Details
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
   doc.setTextColor(51, 65, 85);
 
-  leftTerms.forEach(([label, value], i) => {
-    const y = 266 + i * 4;
-    doc.setFont('helvetica', 'bold');
-    doc.text(label, leftX + 1, y);
-    doc.setFont('helvetica', 'normal');
-    drawAutoScaledText(doc, value, leftX + 32, y, 65, 8, 6);
-  });
+  doc.text('Warranty -', 14, 223.5);
+  doc.line(10, 225.5, 120, 225.5);
 
-  rightTerms.forEach(([label, value], i) => {
-    const y = 266 + i * 4;
-    doc.setFont('helvetica', 'bold');
-    doc.text(label, 102, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(value, 125, y);
-  });
+  doc.text('Packing forwarding : -', 14, 229.5);
+  doc.line(10, 231.5, 120, 231.5);
 
-  // Bank Details section
-  doc.setDrawColor(30, 41, 59);
-  doc.setLineWidth(0.3);
-  doc.line(leftX, 282, rightX, 282);
+  doc.text('Freight :-', 14, 235.5);
+  doc.line(10, 237.5, 120, 237.5);
 
+  doc.text('Payment:-', 14, 241.5);
+  doc.line(10, 243.5, 120, 243.5);
+
+  // Dedicated Bank Details Box in Left Column (Y: 244 to 272)
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(15, 44, 89);
-  doc.text('BANK DETAILS:', leftX + 1, 286);
+  doc.text('BANK DETAILS :', 14, 249);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
 
-  const bankDetails = [
-    `Bank Name : ${company.bankName || ''}`,
-    `Account No : ${company.accountNo || ''}`,
-    `IFSC Code : ${company.ifscCode || ''}`,
-    `Branch : ${company.branchName || ''}`,
-  ];
+  const bankName = company.bankName || 'State Bank of India';
+  const acNo = company.accountNo || '-';
+  const ifsc = company.ifscCode || '-';
+  const branch = company.branchName || '-';
 
-  bankDetails.forEach((line, i) => {
-    doc.text(line, leftX + 1, 290 + i * 4);
-  });
+  doc.text(`Bank Name : ${bankName}`, 14, 254.5);
+  doc.text(`A/c No.     : ${acNo}`, 14, 259.5);
+  doc.text(`IFSC Code : ${ifsc}`, 14, 264.5);
+  doc.text(`Branch      : ${branch}`, 14, 269.5);
 
-  // Thanking you / signature block (right side of bank details)
-  doc.setFont('helvetica', 'bold');
+  // Dynamic values for Left terms
+  if (pi.warranty) {
+    drawAutoScaledText(doc, pi.warranty, 31, 223.5, 87, 8.5, 6);
+  }
+  if (pi.packingForwarding) {
+    drawAutoScaledText(doc, pi.packingForwarding, 48, 229.5, 70, 8.5, 6);
+  }
+  if (pi.freight) {
+    drawAutoScaledText(doc, pi.freight, 29, 235.5, 89, 8.5, 6);
+  }
+  if (pi.paymentTerms) {
+    drawAutoScaledText(doc, pi.paymentTerms, 31, 241.5, 87, 8.5, 6);
+  }
+
+  // Right Column: Validity, Tax, Delivery & Signatures
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(51, 65, 85);
-  doc.text('Thanking you,', 160, 283, { align: 'center' });
-  doc.text(`For ${company.name || 'APEX INDUSTRIES'}`, 160, 288, { align: 'center' });
 
-  doc.setDrawColor(30, 58, 138);
-  doc.setLineWidth(0.5);
-  doc.circle(160, 297, 6);
-  doc.setFontSize(5.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(15, 44, 89);
-  doc.text(company.name || 'APEX INDUSTRIES', 160, 295.5, { align: 'center', maxWidth: 10 });
-  doc.text('SANGLI', 160, 299.5, { align: 'center' });
+  doc.text('Validity –', 123, 224);
+  doc.line(120, 226.5, 200, 226.5);
 
-  doc.setFontSize(9);
+  doc.text('Sales Tax :- GST @', 123, 230.5);
+  doc.text('% Extra', 162, 230.5);
+  doc.line(120, 233, 200, 233);
+
+  doc.text('Delivery Period :-', 123, 237);
+  doc.line(120, 239.5, 200, 239.5);
+
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
   doc.setTextColor(15, 44, 89);
-  doc.text(company.signatoryName || 'Mr. Dilip Mulay', 160, 308, { align: 'center' });
+  doc.text('Thanking you,', 160, 244, { align: 'center' });
+  doc.setFontSize(10);
+  doc.text(`For ${company.name || 'APEX INDUSTRIES'}`, 160, 249, { align: 'center' });
+
+  // Right column dynamic values
+  doc.setFont('helvetica', 'normal');
+  if (pi.validity) {
+    drawAutoScaledText(doc, pi.validity, 138, 224, 60, 9, 6.5);
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.text(String(pi.gstRate ?? 18), 154, 230.5);
+
+  doc.setFont('helvetica', 'normal');
+  if (pi.deliveryPeriod) {
+    drawAutoScaledText(doc, pi.deliveryPeriod, 150, 237, 48, 9, 6.5);
+  }
+
+  // Signatory Stamp & Name
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(15, 44, 89);
+  doc.text(company.signatoryName || 'Mr. Dilip Mulay', 160, 269, { align: 'center' });
+
+  if (company.showStamp) {
+    drawStampSeal(doc, 160, 258);
+  }
 
   return doc;
+}
+
+function drawStampSeal(doc: jsPDF, centerX: number, centerY: number) {
+  try {
+    doc.saveGraphicsState();
+    doc.setDrawColor(59, 7, 100);
+    doc.setTextColor(59, 7, 100);
+    doc.setLineWidth(0.4);
+
+    doc.circle(centerX, centerY, 7.5, 'S');
+    doc.circle(centerX, centerY, 6.2, 'S');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(4.2);
+    doc.text('APEX INDUSTRIES', centerX, centerY - 2.5, { align: 'center' });
+    doc.text('SANGLI', centerX, centerY + 4.5, { align: 'center' });
+
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(20, 40, 120);
+    doc.lines(
+      [
+        [2, -2],
+        [3, 3],
+        [4, -3],
+        [5, 1],
+        [-3, 2],
+        [8, -2],
+      ],
+      centerX - 8,
+      centerY + 0.5
+    );
+
+    doc.restoreGraphicsState();
+  } catch (e) {
+    console.warn('Stamp rendering fallback:', e);
+  }
 }
 
 export function downloadProformaInvoicePDF(pi: ProformaInvoice, company: CompanyDetails): void {
@@ -310,4 +384,9 @@ export function printProformaInvoicePDF(pi: ProformaInvoice, company: CompanyDet
       win.print();
     });
   }
+}
+
+export function getProformaInvoicePDFBlob(pi: ProformaInvoice, company: CompanyDetails): Blob {
+  const doc = generateProformaInvoicePDF(pi, company);
+  return doc.output('blob');
 }

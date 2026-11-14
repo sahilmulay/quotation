@@ -1,4 +1,4 @@
-import { CompanyDetails, Quotation } from '../types';
+import { CompanyDetails, Quotation, PurchaseOrder, ProformaInvoice } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
 /**
@@ -26,13 +26,49 @@ function drawAutoScaledCanvasText(
   ctx.fillText(text, x, y);
 }
 
-/**
- * High-DPI Canvas Image Generator for Quotations
- * Produces crisp, print-ready JPG/PNG images with dynamic auto-scaling
- * for large quotation numbers, reference numbers, customer names, and amounts.
- */
-export async function generateQuotationImageBlob(
-  quote: Quotation,
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = (text || '').split(' ');
+  const lines: string[] = [];
+  let currentLine = words[0] || '';
+
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+    const width = ctx.measureText(currentLine + ' ' + word).width;
+    if (width < maxWidth) {
+      currentLine += ' ' + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  return lines;
+}
+
+interface CommonDocData {
+  type: 'quotation' | 'purchase' | 'proforma';
+  docNo: string;
+  docDate: string;
+  refNo: string;
+  refDate: string;
+  customerName: string;
+  customerAddress: string;
+  items: Array<{ srNo?: number; description: string; quantity: number; unitRate: number; amount: number }>;
+  warranty: string;
+  packingForwarding: string;
+  freight: string;
+  paymentTerms: string;
+  validity: string;
+  deliveryPeriod: string;
+  gstRate: number;
+  subtotal: number;
+  grandTotal: number;
+}
+
+async function renderDocToCanvasBlob(
+  data: CommonDocData,
   company: CompanyDetails,
   format: 'image/jpeg' | 'image/png' = 'image/jpeg'
 ): Promise<Blob> {
@@ -49,7 +85,6 @@ export async function generateQuotationImageBlob(
   // Clean White Background
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
-
   ctx.scale(scale, scale);
 
   // Coordinate mapping constants (base width: 1240, height: 1754)
@@ -62,14 +97,32 @@ export async function generateQuotationImageBlob(
   ctx.fillStyle = '#0F2C59';
   ctx.font = 'bold 36px "Segoe UI", Inter, Arial, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('QUOTATION', 620, 130);
+
+  let titleText = 'QUOTATION';
+  let underlineStart = 490;
+  let underlineEnd = 750;
+  let metaDocLabel = 'Q. No.';
+
+  if (data.type === 'purchase') {
+    titleText = 'PURCHASE ORDER';
+    underlineStart = 440;
+    underlineEnd = 800;
+    metaDocLabel = 'P.O. No.';
+  } else if (data.type === 'proforma') {
+    titleText = 'PROFORMA INVOICE';
+    underlineStart = 420;
+    underlineEnd = 820;
+    metaDocLabel = 'P.I. No.';
+  }
+
+  ctx.fillText(titleText, 620, 130);
 
   // Underline
   ctx.strokeStyle = '#0F2C59';
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(490, 145);
-  ctx.lineTo(750, 145);
+  ctx.moveTo(underlineStart, 145);
+  ctx.lineTo(underlineEnd, 145);
   ctx.stroke();
 
   // 2. MAIN OUTER BORDER
@@ -85,7 +138,7 @@ export async function generateQuotationImageBlob(
   ctx.fillStyle = '#334155';
   ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
   ctx.fillText(company.address || 'E-9, MIDC, Kupwad, SANGLI – 416436 (MS)', 620, 268);
-  ctx.fillText(`Mobile No – ${company.phones || '9850060698/8855003009'}`, 620, 298);
+  ctx.fillText(`Mobile No – ${company.phones || '9850060698 / 8855003009'}`, 620, 298);
   ctx.fillText(`e-mail ${company.email || 'apexindustries92@gmail.com'}`, 620, 326);
 
   ctx.fillStyle = '#0F2C59';
@@ -98,9 +151,9 @@ export async function generateQuotationImageBlob(
   ctx.lineTo(rightX, 370);
   ctx.stroke();
 
-  // 4. CUSTOMER & QUOTATION DETAILS BOX (Y: 370 to 520)
+  // 4. CUSTOMER & METADATA BOX (Y: 370 to 520)
   const metaSplitX = 690;
-  const dateSplitX = 990; // Generous space for Q. No and Ref. No
+  const dateSplitX = 990;
   ctx.beginPath();
   ctx.moveTo(metaSplitX, 370);
   ctx.lineTo(metaSplitX, 520);
@@ -110,44 +163,43 @@ export async function generateQuotationImageBlob(
   ctx.lineTo(dateSplitX, 520);
   ctx.stroke();
 
-  // Customer details (Left side: 60 to 690 = 630px)
+  // Customer details (Left side: 60 to 690)
   ctx.textAlign = 'left';
   ctx.fillStyle = '#1E293B';
   ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
   ctx.fillText('To,', leftX + 24, 405);
 
   ctx.fillStyle = '#0F2C59';
-  drawAutoScaledCanvasText(ctx, quote.customerName || '', leftX + 24, 440, 580, 24, 15, 'bold');
+  drawAutoScaledCanvasText(ctx, data.customerName || '', leftX + 24, 440, 580, 24, 15, 'bold');
 
   ctx.fillStyle = '#475569';
   ctx.font = '19px "Segoe UI", Inter, Arial, sans-serif';
-  const addrLines = wrapText(ctx, quote.customerAddress, 580);
-  addrLines.forEach((line, i) => {
+  const addrLines = wrapText(ctx, data.customerAddress, 580);
+  addrLines.slice(0, 2).forEach((line, i) => {
     ctx.fillText(line, leftX + 24, 470 + i * 24);
   });
 
-  // Quotation Meta (Right side)
-  // Q. No. available space: 775 to 975 = 200px
+  // Metadata (Right side)
   ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
   ctx.fillStyle = '#64748B';
-  ctx.fillText('Q. No.', metaSplitX + 15, 415);
+  ctx.fillText(metaDocLabel, metaSplitX + 15, 415);
   ctx.fillStyle = '#0F2C59';
-  drawAutoScaledCanvasText(ctx, quote.quotationNo || '', metaSplitX + 85, 415, 205, 22, 12, 'bold');
+  drawAutoScaledCanvasText(ctx, data.docNo || '', metaSplitX + 95, 415, 195, 22, 12, 'bold');
 
-  // Date 1: 990 to 1180 = 190px
+  // Date 1
   ctx.fillStyle = '#64748B';
   ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
   ctx.fillText('Date :', dateSplitX + 15, 415);
   ctx.fillStyle = '#1E293B';
   ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText(formatDate(quote.quotationDate), dateSplitX + 75, 415);
+  ctx.fillText(formatDate(data.docDate), dateSplitX + 75, 415);
 
-  // Ref. No. available space: 795 to 975 = 180px
+  // Ref. No.
   ctx.fillStyle = '#64748B';
   ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
   ctx.fillText('Ref. No. :', metaSplitX + 15, 490);
   ctx.fillStyle = '#1E293B';
-  drawAutoScaledCanvasText(ctx, quote.refNo || '-', metaSplitX + 105, 490, 185, 20, 12, 'bold');
+  drawAutoScaledCanvasText(ctx, data.refNo || '-', metaSplitX + 105, 490, 185, 20, 12, 'bold');
 
   // Date 2
   ctx.fillStyle = '#64748B';
@@ -155,7 +207,7 @@ export async function generateQuotationImageBlob(
   ctx.fillText('Date :', dateSplitX + 15, 490);
   ctx.fillStyle = '#1E293B';
   ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText(formatDate(quote.refDate) || '-', dateSplitX + 75, 490);
+  ctx.fillText(formatDate(data.refDate) || '-', dateSplitX + 75, 490);
 
   // 5. SALUTATION SECTION (Y: 520 to 600)
   ctx.beginPath();
@@ -170,7 +222,6 @@ export async function generateQuotationImageBlob(
   ctx.fillText('With reference to your above mentioned enquiry, we submit our lowest offer as follows.', leftX + 80, 585);
 
   // 6. TABLE HEADER & COLUMN GRID (Y: 605 to 1260)
-  // Adjusted column widths to give Amount column maximum breathing room (195px width)
   const colX = [60, 140, 730, 830, 985, 1180];
 
   ctx.beginPath();
@@ -199,7 +250,7 @@ export async function generateQuotationImageBlob(
 
   // Line items rendering
   let rowY = 690;
-  quote.items.forEach((item, idx) => {
+  data.items.forEach((item, idx) => {
     if (rowY > 1180) return;
 
     ctx.fillStyle = '#334155';
@@ -246,16 +297,16 @@ export async function generateQuotationImageBlob(
   ctx.lineTo(rightX, 1260);
   ctx.stroke();
 
-  const quotationTotal =
-    quote.items && quote.items.length > 0
-      ? quote.items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
-      : (quote.subtotal || quote.grandTotal);
+  const totalAmount =
+    data.items && data.items.length > 0
+      ? data.items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
+      : (data.subtotal || data.grandTotal);
 
   ctx.fillStyle = '#0F2C59';
   ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
   ctx.textAlign = 'right';
   ctx.fillText('TOTAL', 970, 1246);
-  ctx.fillText(`₹ ${formatCurrency(quotationTotal)}`, 1165, 1246);
+  ctx.fillText(`₹ ${formatCurrency(totalAmount)}`, 1165, 1246);
 
   // 7. TERMS & CONDITIONS AND SIGNATURE (Y: 1260 to 1610)
   ctx.beginPath();
@@ -265,14 +316,12 @@ export async function generateQuotationImageBlob(
 
   // Left terms
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#475569';
-  ctx.font = 'bold 19px "Segoe UI", Inter, Arial, sans-serif';
 
   const termRows = [
-    { label: 'Warranty -', val: quote.warranty || '12 Months against manufacturing defects', y: 1295 },
-    { label: 'Packing forwarding : -', val: quote.packingForwarding || 'Included in above rates', y: 1340 },
-    { label: 'Freight :-', val: quote.freight || 'Extra at actual / To Pay', y: 1385 },
-    { label: 'Payment:-', val: quote.paymentTerms || '100% against delivery', y: 1430 },
+    { label: 'Warranty -', val: data.warranty || '12 Months against manufacturing defects', y: 1295 },
+    { label: 'Packing forwarding : -', val: data.packingForwarding || 'Included in above rates', y: 1335 },
+    { label: 'Freight :-', val: data.freight || 'Extra at actual / To Pay', y: 1375 },
+    { label: 'Payment:-', val: data.paymentTerms || '100% against delivery', y: 1415 },
   ];
 
   termRows.forEach((tr) => {
@@ -284,26 +333,40 @@ export async function generateQuotationImageBlob(
     drawAutoScaledCanvasText(ctx, tr.val, leftX + 215, tr.y, 440, 18, 12, 'normal');
 
     ctx.beginPath();
-    ctx.moveTo(leftX, tr.y + 12);
-    ctx.lineTo(metaSplitX, tr.y + 12);
+    ctx.moveTo(leftX, tr.y + 10);
+    ctx.lineTo(metaSplitX, tr.y + 10);
     ctx.strokeStyle = '#CBD5E1';
     ctx.lineWidth = 1;
     ctx.stroke();
   });
 
-  ctx.fillStyle = '#64748B';
-  ctx.font = '16px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText('We hope our offer is in line with your exact requirement.', leftX + 20, 1490);
-  ctx.fillText('Kindly feel free to ask us any details.', leftX + 20, 1520);
+  // Dedicated Bank Details for Proforma, or Note for Quote/PO
+  if (data.type === 'proforma') {
+    ctx.fillStyle = '#0F2C59';
+    ctx.font = 'bold 18px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText('BANK DETAILS :', leftX + 20, 1465);
+
+    ctx.fillStyle = '#334155';
+    ctx.font = '16px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(`Bank Name : ${company.bankName || 'State Bank of India'}`, leftX + 20, 1495);
+    ctx.fillText(`A/c No.     : ${company.accountNo || '-'}`, leftX + 20, 1525);
+    ctx.fillText(`IFSC Code : ${company.ifscCode || '-'}`, leftX + 20, 1555);
+    ctx.fillText(`Branch      : ${company.branchName || '-'}`, leftX + 20, 1585);
+  } else {
+    ctx.fillStyle = '#64748B';
+    ctx.font = '16px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText('We hope our offer is in line with your exact requirement.', leftX + 20, 1485);
+    ctx.fillText('Kindly feel free to ask us any details.', leftX + 20, 1515);
+  }
 
   // Right terms & Sign
   ctx.strokeStyle = '#CBD5E1';
   ctx.lineWidth = 1;
 
   const rightRows = [
-    { label: 'Validity –', val: quote.validity || '30 Days', y: 1295 },
-    { label: 'Sales Tax :- GST @', val: `${quote.gstRate}% Extra`, y: 1340 },
-    { label: 'Delivery Period :-', val: quote.deliveryPeriod || '1 to 2 Weeks', y: 1385 },
+    { label: 'Validity –', val: data.validity || '30 Days', y: 1295 },
+    { label: 'Sales Tax :- GST @', val: `${data.gstRate}% Extra`, y: 1335 },
+    { label: 'Delivery Period :-', val: data.deliveryPeriod || '1 to 2 Weeks', y: 1375 },
   ];
 
   rightRows.forEach((rr) => {
@@ -315,8 +378,8 @@ export async function generateQuotationImageBlob(
     drawAutoScaledCanvasText(ctx, rr.val, metaSplitX + 200, rr.y, 250, 18, 12, 'bold');
 
     ctx.beginPath();
-    ctx.moveTo(metaSplitX, rr.y + 12);
-    ctx.lineTo(rightX, rr.y + 12);
+    ctx.moveTo(metaSplitX, rr.y + 10);
+    ctx.lineTo(rightX, rr.y + 10);
     ctx.stroke();
   });
 
@@ -328,7 +391,7 @@ export async function generateQuotationImageBlob(
 
   ctx.fillStyle = '#0F2C59';
   ctx.font = 'bold 21px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText('For APEX INDUSTRIES', 945, 1465);
+  ctx.fillText(`For ${company.name || 'APEX INDUSTRIES'}`, 945, 1465);
 
   // Stamp circle & signature
   ctx.save();
@@ -355,6 +418,39 @@ export async function generateQuotationImageBlob(
   });
 }
 
+// ==========================================
+// QUOTATION EXPORTS
+// ==========================================
+export async function generateQuotationImageBlob(
+  quote: Quotation,
+  company: CompanyDetails,
+  format: 'image/jpeg' | 'image/png' = 'image/jpeg'
+): Promise<Blob> {
+  return renderDocToCanvasBlob(
+    {
+      type: 'quotation',
+      docNo: quote.quotationNo,
+      docDate: quote.quotationDate,
+      refNo: quote.refNo,
+      refDate: quote.refDate,
+      customerName: quote.customerName,
+      customerAddress: quote.customerAddress,
+      items: quote.items,
+      warranty: quote.warranty,
+      packingForwarding: quote.packingForwarding,
+      freight: quote.freight,
+      paymentTerms: quote.paymentTerms,
+      validity: quote.validity,
+      deliveryPeriod: quote.deliveryPeriod,
+      gstRate: quote.gstRate,
+      subtotal: quote.subtotal,
+      grandTotal: quote.grandTotal,
+    },
+    company,
+    format
+  );
+}
+
 export async function downloadQuotationJPG(
   quote: Quotation,
   company: CompanyDetails
@@ -362,6 +458,96 @@ export async function downloadQuotationJPG(
   const cleanCustomer = (quote.customerName || 'Customer').replace(/[^a-zA-Z0-9_-]/g, '_');
   const filename = `${quote.quotationNo || 'Quotation'}_${cleanCustomer}.jpg`;
   const blob = await generateQuotationImageBlob(quote, company, 'image/jpeg');
+  triggerDownload(blob, filename);
+}
+
+// ==========================================
+// PURCHASE ORDER EXPORTS
+// ==========================================
+export async function generatePurchaseOrderImageBlob(
+  po: PurchaseOrder,
+  company: CompanyDetails,
+  format: 'image/jpeg' | 'image/png' = 'image/jpeg'
+): Promise<Blob> {
+  return renderDocToCanvasBlob(
+    {
+      type: 'purchase',
+      docNo: po.poNo,
+      docDate: po.poDate,
+      refNo: po.refNo,
+      refDate: po.refDate,
+      customerName: po.customerName,
+      customerAddress: po.customerAddress,
+      items: po.items,
+      warranty: po.warranty,
+      packingForwarding: po.packingForwarding,
+      freight: po.freight,
+      paymentTerms: po.paymentTerms,
+      validity: po.validity,
+      deliveryPeriod: po.deliveryPeriod,
+      gstRate: po.gstRate,
+      subtotal: po.subtotal,
+      grandTotal: po.grandTotal,
+    },
+    company,
+    format
+  );
+}
+
+export async function downloadPurchaseOrderJPG(
+  po: PurchaseOrder,
+  company: CompanyDetails
+): Promise<void> {
+  const cleanCustomer = (po.customerName || 'Customer').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `${po.poNo || 'PurchaseOrder'}_${cleanCustomer}.jpg`;
+  const blob = await generatePurchaseOrderImageBlob(po, company, 'image/jpeg');
+  triggerDownload(blob, filename);
+}
+
+// ==========================================
+// PROFORMA INVOICE EXPORTS
+// ==========================================
+export async function generateProformaInvoiceImageBlob(
+  pi: ProformaInvoice,
+  company: CompanyDetails,
+  format: 'image/jpeg' | 'image/png' = 'image/jpeg'
+): Promise<Blob> {
+  return renderDocToCanvasBlob(
+    {
+      type: 'proforma',
+      docNo: pi.piNo,
+      docDate: pi.piDate,
+      refNo: pi.refNo,
+      refDate: pi.refDate,
+      customerName: pi.customerName,
+      customerAddress: pi.customerAddress,
+      items: pi.items,
+      warranty: pi.warranty,
+      packingForwarding: pi.packingForwarding,
+      freight: pi.freight,
+      paymentTerms: pi.paymentTerms,
+      validity: pi.validity,
+      deliveryPeriod: pi.deliveryPeriod,
+      gstRate: pi.gstRate,
+      subtotal: pi.subtotal,
+      grandTotal: pi.grandTotal,
+    },
+    company,
+    format
+  );
+}
+
+export async function downloadProformaInvoiceJPG(
+  pi: ProformaInvoice,
+  company: CompanyDetails
+): Promise<void> {
+  const cleanCustomer = (pi.customerName || 'Customer').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `${pi.piNo || 'ProformaInvoice'}_${cleanCustomer}.jpg`;
+  const blob = await generateProformaInvoiceImageBlob(pi, company, 'image/jpeg');
+  triggerDownload(blob, filename);
+}
+
+function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -370,25 +556,4 @@ export async function downloadQuotationJPG(
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const words = (text || '').split(' ');
-  const lines: string[] = [];
-  let currentLine = words[0] || '';
-
-  for (let i = 1; i < words.length; i++) {
-    const word = words[i];
-    const width = ctx.measureText(currentLine + ' ' + word).width;
-    if (width < maxWidth) {
-      currentLine += ' ' + word;
-    } else {
-      lines.push(currentLine);
-      currentLine = word;
-    }
-  }
-  if (currentLine) {
-    lines.push(currentLine);
-  }
-  return lines;
 }

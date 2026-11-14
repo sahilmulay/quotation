@@ -5,11 +5,12 @@ import { Step3LineItems } from '../QuotationWizard/Step3LineItems';
 import { Step4Terms } from '../QuotationWizard/Step4Terms';
 import { db, getNextSuggestedPiNo, incrementPiCounter } from '../../db/db';
 import { downloadProformaInvoicePDF, printProformaInvoicePDF } from '../../services/proformaInvoicePdfGenerator';
+import { downloadProformaInvoiceJPG, generateProformaInvoiceImageBlob } from '../../services/imageGenerator';
+import { openProformaInvoiceShareSheet } from '../../services/shareService';
 import {
   ArrowLeft, ArrowRight, CheckCircle2, RotateCcw, AlertTriangle,
-  Hash, Calendar, FileCode, Clock, FileDown, Printer, Eye, Share2, FileCheck, Landmark
+  Hash, Calendar, FileCode, Clock, FileDown, Printer, Eye, Share2, FileCheck, Landmark, Check
 } from 'lucide-react';
-import { formatDate } from '../../utils/formatters';
 
 interface ProformaWizardProps {
   initialPi?: ProformaInvoice | null;
@@ -45,7 +46,7 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
   const [validity, setValidity] = useState(initialPi?.validity || '30 Days');
   const [deliveryPeriod, setDeliveryPeriod] = useState(initialPi?.deliveryPeriod || '1 to 2 Weeks');
   const [gstRate, setGstRate] = useState(initialPi?.gstRate ?? 18);
-  const [isSaved, setIsSaved] = useState(false);
+
   useEffect(() => {
     if (!initialPi && !piNo) {
       getNextSuggestedPiNo().then(setPiNo);
@@ -80,7 +81,6 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
       setPiId(Number(newId));
       await incrementPiCounter();
     }
-    setIsSaved(true);
   };
 
   const validateStep = (step: number): { valid: boolean; error?: string } => {
@@ -232,27 +232,19 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
           </div>
 
           {/* Bank Details Preview */}
-          {(company.bankName || company.accountNo) && (
-            <div className="bg-purple-50 border border-purple-200 rounded-2xl p-3.5">
-              <div className="flex items-center gap-2 mb-2">
-                <Landmark className="w-4 h-4 text-purple-600" />
-                <span className="text-xs font-bold text-purple-800">Bank Details (from Settings)</span>
-              </div>
-              <div className="text-xs text-slate-700 space-y-1">
-                {company.bankName && <div><span className="font-semibold">Bank:</span> {company.bankName}</div>}
-                {company.accountNo && <div><span className="font-semibold">Account No:</span> {company.accountNo}</div>}
-                {company.ifscCode && <div><span className="font-semibold">IFSC:</span> {company.ifscCode}</div>}
-                {company.branchName && <div><span className="font-semibold">Branch:</span> {company.branchName}</div>}
-              </div>
-              <p className="text-[10px] text-purple-500 mt-2">These details will appear on the Proforma Invoice PDF. Update in Settings.</p>
+          <div className="bg-purple-50 border border-purple-200 rounded-2xl p-3.5">
+            <div className="flex items-center gap-2 mb-2">
+              <Landmark className="w-4 h-4 text-purple-600" />
+              <span className="text-xs font-bold text-purple-800">Company Bank Details (Included in Proforma)</span>
             </div>
-          )}
-          {!company.bankName && !company.accountNo && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs text-amber-800">
-              <p className="font-semibold">⚠️ Bank details not set.</p>
-              <p className="mt-0.5">Go to Settings tab to add bank details — they will appear on this Proforma Invoice PDF.</p>
+            <div className="text-xs text-slate-700 space-y-1">
+              <div><span className="font-semibold">Bank:</span> {company.bankName || 'State Bank of India'}</div>
+              <div><span className="font-semibold">Account No:</span> {company.accountNo || '-'}</div>
+              <div><span className="font-semibold">IFSC:</span> {company.ifscCode || '-'}</div>
+              <div><span className="font-semibold">Branch:</span> {company.branchName || '-'}</div>
             </div>
-          )}
+            <p className="text-[10px] text-purple-600 mt-2">These details are shown in the official document & PDF. Update anytime in the Settings tab.</p>
+          </div>
         </div>
       )}
 
@@ -274,7 +266,7 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
       )}
 
       {currentStep === 5 && (
-        <PiStep5Generate pi={currentPi} company={company} onSave={handleSave} onFinish={onFinish} isSaved={isSaved} />
+        <PiStep5Generate pi={currentPi} company={company} onSave={handleSave} onFinish={onFinish} />
       )}
 
       {/* Nav Buttons */}
@@ -301,101 +293,183 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
   );
 };
 
+// Step 5 component for PI with crisp visual document preview
 interface PiStep5Props {
   pi: ProformaInvoice;
   company: CompanyDetails;
   onSave: () => Promise<void>;
   onFinish: () => void;
-  isSaved: boolean;
 }
 
-const PiStep5Generate: React.FC<PiStep5Props> = ({ pi, company, onSave, onFinish, isSaved: initialSaved }) => {
-  const [saved, setSaved] = useState(initialSaved);
+const PiStep5Generate: React.FC<PiStep5Props> = ({ pi, company, onSave, onFinish }) => {
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Auto-save upon arriving at Step 5
   useEffect(() => {
-    onSave().then(() => setSaved(true)).catch(console.error);
+    onSave().then(() => setIsSaved(true)).catch(console.error);
   }, []);
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3500); };
+  // Generate crisp visual image preview
+  useEffect(() => {
+    let active = true;
+    let urlToRevoke: string | null = null;
 
-  const handleDownload = async () => {
-    await onSave(); setSaved(true);
-    downloadProformaInvoicePDF(pi, company);
-    showToast('📄 Proforma Invoice PDF downloaded!');
-  };
+    generateProformaInvoiceImageBlob(pi, company, 'image/jpeg')
+      .then((blob) => {
+        if (!active) return;
+        const url = URL.createObjectURL(blob);
+        urlToRevoke = url;
+        setPreviewImageUrl(url);
+      })
+      .catch((err) => {
+        console.error('Failed to generate PI preview:', err);
+      });
 
-  const handlePrint = async () => {
-    await onSave(); setSaved(true);
-    printProformaInvoicePDF(pi, company);
+    return () => {
+      active = false;
+      if (urlToRevoke) URL.revokeObjectURL(urlToRevoke);
+    };
+  }, [pi, company]);
+
+  const handleDownloadPhotoAndPDF = async () => {
+    try {
+      await onSave();
+      setIsSaved(true);
+
+      downloadProformaInvoicePDF(pi, company);
+      await downloadProformaInvoiceJPG(pi, company);
+
+      setToastMessage('📸 Photo & 📄 PDF downloaded & saved to Proforma Invoices!');
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err) {
+      console.error('Error downloading PI:', err);
+      downloadProformaInvoicePDF(pi, company);
+      setToastMessage('📄 PDF downloaded & saved to Proforma Invoices!');
+      setTimeout(() => setToastMessage(null), 3500);
+    }
   };
 
   const handleShare = async () => {
-    await onSave(); setSaved(true);
-    const text = `PROFORMA INVOICE\n${pi.piNo}\nCustomer: ${pi.customerName}\nTotal: ₹${pi.subtotal.toLocaleString('en-IN')}\nGST ${pi.gstRate}% Extra\n\nFrom: ${company.name}`;
-    if (navigator.share) {
-      await navigator.share({ title: `PI - ${pi.piNo}`, text }).catch(() => {});
-    } else {
-      await navigator.clipboard?.writeText(text).catch(() => {});
-      showToast('PI details copied to clipboard!');
+    try {
+      await onSave();
+      setIsSaved(true);
+      await openProformaInvoiceShareSheet(pi, company);
+    } catch (err) {
+      console.error('Share PI error:', err);
     }
+  };
+
+  const handlePrint = async () => {
+    try {
+      await onSave();
+      setIsSaved(true);
+      printProformaInvoicePDF(pi, company);
+    } catch (err) {
+      console.error('Print PI error:', err);
+    }
+  };
+
+  const handleSaveAndDone = async () => {
+    setIsSaving(true);
+    await onSave();
+    setIsSaving(false);
+    setIsSaved(true);
+    setTimeout(() => {
+      onFinish();
+    }, 500);
   };
 
   return (
     <div className="space-y-4">
+      {/* Banner */}
       <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-2xl p-3.5">
         <div className="flex items-center space-x-2.5">
           <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold">5</div>
           <div>
             <h3 className="font-bold text-slate-800 text-sm">Download & Share Proforma Invoice</h3>
-            <p className="text-xs text-slate-500">Auto-saved • Download as PDF with Bank Details</p>
+            <p className="text-xs text-slate-500">Auto-saved to Proforma Invoices • Includes Bank Details</p>
           </div>
         </div>
-        <span className={`px-2.5 py-1 text-xs font-extrabold rounded-full border flex items-center gap-1 ${saved ? 'bg-purple-100 text-purple-800 border-purple-300' : 'bg-sky-100 text-sky-800 border-sky-300'}`}>
-          <FileCheck className="w-3.5 h-3.5" /><span>{saved ? 'Auto-Saved' : 'Saving...'}</span>
+        <span className={`px-2.5 py-1 text-xs font-extrabold rounded-full border flex items-center gap-1 ${isSaved ? 'bg-purple-100 text-purple-800 border-purple-300' : 'bg-sky-100 text-sky-800 border-sky-300'}`}>
+          <FileCheck className="w-3.5 h-3.5" /><span>{isSaved ? 'Auto-Saved' : 'Saving...'}</span>
         </span>
       </div>
 
-      {toast && (
-        <div className="bg-purple-50 border border-purple-300 text-purple-950 p-3 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-150">
-          <span>✅</span><span>{toast}</span>
+      {/* Success Toast */}
+      {toastMessage && (
+        <div className="bg-purple-50 border border-purple-300 text-purple-950 p-3 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-150 shadow-xs">
+          <Check className="w-4 h-4 text-purple-600 shrink-0" />
+          <span>{toastMessage}</span>
         </div>
       )}
 
+      {/* Action Buttons: Download & Share */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        <button onClick={handleDownload} className="py-3.5 px-4 bg-[#0F2C59] hover:bg-[#1E3A8A] text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition">
-          <FileDown className="w-5 h-5 text-sky-300" /><span>Download PDF</span>
+        <button
+          type="button"
+          onClick={handleDownloadPhotoAndPDF}
+          className="py-3.5 px-4 bg-[#0F2C59] hover:bg-[#1E3A8A] text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition"
+        >
+          <FileDown className="w-5 h-5 text-sky-300" />
+          <span>Download Photo & PDF</span>
         </button>
-        <button onClick={handleShare} className="py-3.5 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition">
-          <Share2 className="w-5 h-5 text-purple-100" /><span>Share Invoice</span>
+
+        <button
+          type="button"
+          onClick={handleShare}
+          className="py-3.5 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition"
+        >
+          <Share2 className="w-5 h-5 text-purple-100" />
+          <span>Share Proforma Invoice</span>
         </button>
       </div>
 
+      {/* Secondary Actions: Print & Save */}
       <div className="grid grid-cols-2 gap-2.5">
-        <button onClick={handlePrint} className="py-3 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition active:scale-[0.98]">
-          <Printer className="w-4 h-4 text-slate-300" /><span>Print Document</span>
+        <button
+          type="button"
+          onClick={handlePrint}
+          className="py-3 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition active:scale-[0.98]"
+        >
+          <Printer className="w-4 h-4 text-slate-300" />
+          <span>Print Document</span>
         </button>
-        <button onClick={async () => { setIsSaving(true); await onSave(); setIsSaving(false); setSaved(true); setTimeout(onFinish, 500); }}
+
+        <button
+          type="button"
+          onClick={handleSaveAndDone}
           disabled={isSaving}
-          className="py-3 px-3 rounded-xl font-bold text-xs border flex items-center justify-center gap-2 transition active:scale-[0.98] bg-purple-600 text-white border-purple-600 shadow-xs">
-          <CheckCircle2 className="w-4 h-4 text-white" /><span>{isSaving ? 'Saving...' : 'Saved • View All'}</span>
+          className="py-3 px-3 rounded-xl font-bold text-xs border flex items-center justify-center gap-2 transition active:scale-[0.98] bg-purple-600 text-white border-purple-600 shadow-xs"
+        >
+          <CheckCircle2 className="w-4 h-4 text-white" />
+          <span>{isSaving ? 'Saving...' : 'Saved • View All'}</span>
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-2">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 mb-2">
-          <Eye className="w-4 h-4 text-purple-600" /><span>PI Summary</span>
-        </div>
-        <div className="flex justify-between text-xs"><span className="text-slate-500">PI No.</span><span className="font-bold">{pi.piNo}</span></div>
-        <div className="flex justify-between text-xs"><span className="text-slate-500">Customer</span><span className="font-bold">{pi.customerName}</span></div>
-        <div className="flex justify-between text-xs"><span className="text-slate-500">Date</span><span className="font-bold">{formatDate(pi.piDate)}</span></div>
-        <div className="flex justify-between text-xs"><span className="text-slate-500">Items</span><span className="font-bold">{pi.items.filter(i => i.description.trim()).length}</span></div>
-        <div className="flex justify-between text-sm border-t border-slate-100 pt-2 mt-1">
-          <span className="font-bold text-slate-700">Total Amount</span>
-          <span className="font-extrabold text-purple-700">₹{pi.subtotal.toLocaleString('en-IN')}</span>
-        </div>
-        <p className="text-[10px] text-slate-400 text-right">+ GST {pi.gstRate}% Extra</p>
+      {/* Preview Section Header */}
+      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 px-1 pt-1">
+        <Eye className="w-4 h-4 text-purple-600" />
+        <span>Proforma Invoice Preview</span>
       </div>
+
+      {/* Visual Document Preview */}
+      {previewImageUrl ? (
+        <div className="bg-white rounded-2xl border-2 border-slate-300 overflow-hidden shadow-lg p-1 sm:p-2">
+          <img
+            src={previewImageUrl}
+            alt="Proforma Invoice Preview"
+            className="w-full h-auto rounded-xl shadow-xs object-contain"
+          />
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl p-12 text-center text-slate-400 border border-slate-200">
+          <div className="w-8 h-8 border-3 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-xs font-semibold text-slate-600">Generating crisp proforma invoice preview...</p>
+        </div>
+      )}
     </div>
   );
 };

@@ -5,11 +5,12 @@ import { Step3LineItems } from '../QuotationWizard/Step3LineItems';
 import { Step4Terms } from '../QuotationWizard/Step4Terms';
 import { db, getNextSuggestedPoNo, incrementPoCounter } from '../../db/db';
 import { downloadPurchaseOrderPDF, printPurchaseOrderPDF } from '../../services/purchaseOrderPdfGenerator';
+import { downloadPurchaseOrderJPG, generatePurchaseOrderImageBlob } from '../../services/imageGenerator';
+import { openPurchaseOrderShareSheet } from '../../services/shareService';
 import {
   ArrowLeft, ArrowRight, CheckCircle2, RotateCcw, AlertTriangle,
-  Hash, Calendar, FileCode, Clock, FileDown, Printer, Eye, Share2, FileCheck
+  Hash, Calendar, FileCode, Clock, FileDown, Printer, Eye, Share2, FileCheck, Check
 } from 'lucide-react';
-import { formatDate } from '../../utils/formatters';
 
 interface PurchaseOrderWizardProps {
   initialPo?: PurchaseOrder | null;
@@ -45,7 +46,6 @@ export const PurchaseOrderWizard: React.FC<PurchaseOrderWizardProps> = ({
   const [validity, setValidity] = useState(initialPo?.validity || '30 Days');
   const [deliveryPeriod, setDeliveryPeriod] = useState(initialPo?.deliveryPeriod || '1 to 2 Weeks');
   const [gstRate, setGstRate] = useState(initialPo?.gstRate ?? 18);
-  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     if (!initialPo && !poNo) {
@@ -81,7 +81,6 @@ export const PurchaseOrderWizard: React.FC<PurchaseOrderWizardProps> = ({
       setPoId(Number(newId));
       await incrementPoCounter();
     }
-    setIsSaved(true);
   };
 
   const validateStep = (step: number): { valid: boolean; error?: string } => {
@@ -256,7 +255,7 @@ export const PurchaseOrderWizard: React.FC<PurchaseOrderWizardProps> = ({
       )}
 
       {currentStep === 5 && (
-        <PoStep5Generate po={currentPo} company={company} onSave={handleSave} onFinish={onFinish} isSaved={isSaved} />
+        <PoStep5Generate po={currentPo} company={company} onSave={handleSave} onFinish={onFinish} />
       )}
 
       {/* Nav Buttons */}
@@ -283,104 +282,183 @@ export const PurchaseOrderWizard: React.FC<PurchaseOrderWizardProps> = ({
   );
 };
 
-// Step 5 component for PO
+// Step 5 component for PO with crisp visual document preview
 interface PoStep5Props {
   po: PurchaseOrder;
   company: CompanyDetails;
   onSave: () => Promise<void>;
   onFinish: () => void;
-  isSaved: boolean;
 }
 
-const PoStep5Generate: React.FC<PoStep5Props> = ({ po, company, onSave, onFinish, isSaved: initialSaved }) => {
-  const [saved, setSaved] = useState(initialSaved);
+const PoStep5Generate: React.FC<PoStep5Props> = ({ po, company, onSave, onFinish }) => {
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Auto-save upon arriving at Step 5
   useEffect(() => {
-    onSave().then(() => setSaved(true)).catch(console.error);
+    onSave().then(() => setIsSaved(true)).catch(console.error);
   }, []);
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3500); };
+  // Generate crisp visual image preview
+  useEffect(() => {
+    let active = true;
+    let urlToRevoke: string | null = null;
 
-  const handleDownload = async () => {
-    await onSave(); setSaved(true);
-    downloadPurchaseOrderPDF(po, company);
-    showToast('📄 Purchase Order PDF downloaded!');
-  };
+    generatePurchaseOrderImageBlob(po, company, 'image/jpeg')
+      .then((blob) => {
+        if (!active) return;
+        const url = URL.createObjectURL(blob);
+        urlToRevoke = url;
+        setPreviewImageUrl(url);
+      })
+      .catch((err) => {
+        console.error('Failed to generate PO preview:', err);
+      });
 
-  const handlePrint = async () => {
-    await onSave(); setSaved(true);
-    printPurchaseOrderPDF(po, company);
+    return () => {
+      active = false;
+      if (urlToRevoke) URL.revokeObjectURL(urlToRevoke);
+    };
+  }, [po, company]);
+
+  const handleDownloadPhotoAndPDF = async () => {
+    try {
+      await onSave();
+      setIsSaved(true);
+
+      downloadPurchaseOrderPDF(po, company);
+      await downloadPurchaseOrderJPG(po, company);
+
+      setToastMessage('📸 Photo & 📄 PDF downloaded & saved to Purchase Orders!');
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err) {
+      console.error('Error downloading PO:', err);
+      downloadPurchaseOrderPDF(po, company);
+      setToastMessage('📄 PDF downloaded & saved to Purchase Orders!');
+      setTimeout(() => setToastMessage(null), 3500);
+    }
   };
 
   const handleShare = async () => {
-    await onSave(); setSaved(true);
-    const text = `PURCHASE ORDER\n${po.poNo}\nCustomer: ${po.customerName}\nTotal: ₹${po.subtotal.toLocaleString('en-IN')}\nGST ${po.gstRate}% Extra\n\nFrom: ${company.name}`;
-    if (navigator.share) {
-      await navigator.share({ title: `PO - ${po.poNo}`, text }).catch(() => {});
-    } else {
-      await navigator.clipboard?.writeText(text).catch(() => {});
-      showToast('PO details copied to clipboard!');
+    try {
+      await onSave();
+      setIsSaved(true);
+      await openPurchaseOrderShareSheet(po, company);
+    } catch (err) {
+      console.error('Share PO error:', err);
     }
+  };
+
+  const handlePrint = async () => {
+    try {
+      await onSave();
+      setIsSaved(true);
+      printPurchaseOrderPDF(po, company);
+    } catch (err) {
+      console.error('Print PO error:', err);
+    }
+  };
+
+  const handleSaveAndDone = async () => {
+    setIsSaving(true);
+    await onSave();
+    setIsSaving(false);
+    setIsSaved(true);
+    setTimeout(() => {
+      onFinish();
+    }, 500);
   };
 
   return (
     <div className="space-y-4">
+      {/* Banner */}
       <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5">
         <div className="flex items-center space-x-2.5">
           <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">5</div>
           <div>
             <h3 className="font-bold text-slate-800 text-sm">Download & Share Purchase Order</h3>
-            <p className="text-xs text-slate-500">Auto-saved • Download as PDF</p>
+            <p className="text-xs text-slate-500">Auto-saved to Purchase Orders • Download as PDF & Photo</p>
           </div>
         </div>
-        <span className={`px-2.5 py-1 text-xs font-extrabold rounded-full border flex items-center gap-1 ${saved ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-sky-100 text-sky-800 border-sky-300'}`}>
-          <FileCheck className="w-3.5 h-3.5" /><span>{saved ? 'Auto-Saved' : 'Saving...'}</span>
+        <span className={`px-2.5 py-1 text-xs font-extrabold rounded-full border flex items-center gap-1 ${isSaved ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-sky-100 text-sky-800 border-sky-300'}`}>
+          <FileCheck className="w-3.5 h-3.5" /><span>{isSaved ? 'Auto-Saved' : 'Saving...'}</span>
         </span>
       </div>
 
-      {toast && (
-        <div className="bg-emerald-50 border border-emerald-300 text-emerald-950 p-3 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-150">
-          <span>✅</span><span>{toast}</span>
+      {/* Success Toast */}
+      {toastMessage && (
+        <div className="bg-emerald-50 border border-emerald-300 text-emerald-950 p-3 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-150 shadow-xs">
+          <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{toastMessage}</span>
         </div>
       )}
 
+      {/* Action Buttons: Download & Share */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        <button onClick={handleDownload} className="py-3.5 px-4 bg-[#0F2C59] hover:bg-[#1E3A8A] text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition">
-          <FileDown className="w-5 h-5 text-sky-300" /><span>Download PDF</span>
+        <button
+          type="button"
+          onClick={handleDownloadPhotoAndPDF}
+          className="py-3.5 px-4 bg-[#0F2C59] hover:bg-[#1E3A8A] text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition"
+        >
+          <FileDown className="w-5 h-5 text-sky-300" />
+          <span>Download Photo & PDF</span>
         </button>
-        <button onClick={handleShare} className="py-3.5 px-4 bg-sky-600 hover:bg-sky-700 text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition">
-          <Share2 className="w-5 h-5 text-sky-100" /><span>Share PO</span>
+
+        <button
+          type="button"
+          onClick={handleShare}
+          className="py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition"
+        >
+          <Share2 className="w-5 h-5 text-emerald-100" />
+          <span>Share Purchase Order</span>
         </button>
       </div>
 
+      {/* Secondary Actions: Print & Save */}
       <div className="grid grid-cols-2 gap-2.5">
-        <button onClick={handlePrint} className="py-3 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition active:scale-[0.98]">
-          <Printer className="w-4 h-4 text-slate-300" /><span>Print Document</span>
+        <button
+          type="button"
+          onClick={handlePrint}
+          className="py-3 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition active:scale-[0.98]"
+        >
+          <Printer className="w-4 h-4 text-slate-300" />
+          <span>Print Document</span>
         </button>
-        <button onClick={async () => { setIsSaving(true); await onSave(); setIsSaving(false); setSaved(true); setTimeout(onFinish, 500); }}
+
+        <button
+          type="button"
+          onClick={handleSaveAndDone}
           disabled={isSaving}
-          className="py-3 px-3 rounded-xl font-bold text-xs border flex items-center justify-center gap-2 transition active:scale-[0.98] bg-emerald-600 text-white border-emerald-600 shadow-xs">
-          <CheckCircle2 className="w-4 h-4 text-white" /><span>{isSaving ? 'Saving...' : 'Saved • View All'}</span>
+          className="py-3 px-3 rounded-xl font-bold text-xs border flex items-center justify-center gap-2 transition active:scale-[0.98] bg-emerald-600 text-white border-emerald-600 shadow-xs"
+        >
+          <CheckCircle2 className="w-4 h-4 text-white" />
+          <span>{isSaving ? 'Saving...' : 'Saved • View All'}</span>
         </button>
       </div>
 
-      {/* Summary card */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-2">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 mb-2">
-          <Eye className="w-4 h-4 text-emerald-600" /><span>PO Summary</span>
-        </div>
-        <div className="flex justify-between text-xs"><span className="text-slate-500">PO No.</span><span className="font-bold">{po.poNo}</span></div>
-        <div className="flex justify-between text-xs"><span className="text-slate-500">Customer</span><span className="font-bold">{po.customerName}</span></div>
-        <div className="flex justify-between text-xs"><span className="text-slate-500">Date</span><span className="font-bold">{formatDate(po.poDate)}</span></div>
-        <div className="flex justify-between text-xs"><span className="text-slate-500">Items</span><span className="font-bold">{po.items.filter(i => i.description.trim()).length}</span></div>
-        <div className="flex justify-between text-sm border-t border-slate-100 pt-2 mt-1">
-          <span className="font-bold text-slate-700">Total Amount</span>
-          <span className="font-extrabold text-[#0F2C59]">₹{po.subtotal.toLocaleString('en-IN')}</span>
-        </div>
-        <p className="text-[10px] text-slate-400 text-right">+ GST {po.gstRate}% Extra</p>
+      {/* Preview Section Header */}
+      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 px-1 pt-1">
+        <Eye className="w-4 h-4 text-emerald-600" />
+        <span>Purchase Order Preview</span>
       </div>
+
+      {/* Visual Document Preview */}
+      {previewImageUrl ? (
+        <div className="bg-white rounded-2xl border-2 border-slate-300 overflow-hidden shadow-lg p-1 sm:p-2">
+          <img
+            src={previewImageUrl}
+            alt="Purchase Order Preview"
+            className="w-full h-auto rounded-xl shadow-xs object-contain"
+          />
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl p-12 text-center text-slate-400 border border-slate-200">
+          <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-xs font-semibold text-slate-600">Generating crisp purchase order preview...</p>
+        </div>
+      )}
     </div>
   );
 };
