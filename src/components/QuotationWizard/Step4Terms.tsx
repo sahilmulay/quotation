@@ -62,35 +62,35 @@ export const Step4Terms: React.FC<Step4TermsProps> = ({
         </div>
       </div>
 
-      {/* Live Financial Summary Card */}
-      <div className="bg-gradient-to-br from-[#0F2C59] to-[#1E3A8A] text-white rounded-2xl p-4 shadow-md space-y-3">
-        <div className="flex items-center justify-between border-b border-sky-400/20 pb-2.5">
-          <span className="text-xs font-medium text-sky-200">Total Products Amount (Basic)</span>
-          <span className="text-sm font-bold tracking-tight">₹{formatCurrency(subtotal)}</span>
+      {/* Live Financial Summary Card - Clean White Design */}
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Products Amount (Basic)</span>
+          <span className="text-base font-extrabold text-slate-900 tracking-tight">₹{formatCurrency(subtotal)}</span>
         </div>
 
-        <div className="flex items-center justify-between border-b border-sky-400/20 pb-2.5">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-sky-200">GST ({gstRate}%)</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-200 border border-amber-400/30 font-semibold">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-700">GST ({gstRate}%)</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 font-bold">
               Extra as Applicable
             </span>
           </div>
-          <span className="text-sm font-bold text-sky-200">₹{formatCurrency(gstAmount)}</span>
+          <span className="text-sm font-bold text-slate-700">₹{formatCurrency(gstAmount)}</span>
         </div>
 
-        <div className="flex items-baseline justify-between pt-1">
+        <div className="flex items-baseline justify-between pt-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-sky-300 block">Total Quotation Value</span>
-            <span className="text-[11px] text-sky-200/80 italic line-clamp-1 max-w-[200px] sm:max-w-xs">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-800 block">Total Quotation Value</span>
+            <span className="text-[11px] text-slate-500 italic line-clamp-1 max-w-[200px] sm:max-w-xs mt-0.5">
               {numberToWordsIndian(grandTotal)}
             </span>
           </div>
           <div className="text-right">
-            <span className="text-2xl font-extrabold text-white tracking-tight">
+            <span className="text-2xl font-black text-slate-950 tracking-tight">
               ₹{formatCurrency(grandTotal)}
             </span>
-            <span className="block text-[10px] text-sky-300 font-medium">+ GST Extra</span>
+            <span className="block text-[10px] text-slate-500 font-semibold mt-0.5">+ GST Extra</span>
           </div>
         </div>
       </div>

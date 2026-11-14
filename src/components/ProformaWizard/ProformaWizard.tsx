@@ -288,44 +288,51 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
             </div>
           </div>
 
-          {/* Interactive Financial Breakdown Card */}
-          <div className="bg-gradient-to-br from-[#1E1B4B] via-[#2E1065] to-[#3B0764] text-white rounded-3xl p-4 sm:p-5 shadow-xl space-y-3.5 border border-purple-400/20">
+          {/* Simple Clean White Financial Breakdown Card */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 space-y-4">
             {/* Row 1: Line Items Total */}
-            <div className="flex items-center justify-between border-b border-purple-300/20 pb-2.5">
-              <span className="text-xs font-semibold text-purple-200">1. Line Items Total (Basic)</span>
-              <span className="text-base font-extrabold text-white">₹{formatCurrency(subtotal)}</span>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                  1. Line Items Total (Basic)
+                </span>
+                <span className="text-[11px] text-slate-400">Sum of all products added</span>
+              </div>
+              <span className="text-base font-extrabold text-slate-900">
+                ₹{formatCurrency(subtotal)}
+              </span>
             </div>
 
             {/* Row 2: Add Packaging, Forwarding, Freight */}
-            <div className="space-y-1.5 border-b border-purple-300/20 pb-3">
+            <div className="space-y-1.5 border-b border-slate-100 pb-3.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-emerald-300 flex items-center gap-1">
-                  <Truck className="w-3.5 h-3.5" />
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <Truck className="w-3.5 h-3.5 text-purple-600" />
                   <span>2. Add : Packaging, Forwarding, Freight (₹)</span>
                 </label>
-                <span className="text-sm font-bold text-emerald-300">+ ₹{formatCurrency(packagingFreightAmount)}</span>
+                <span className="text-sm font-bold text-emerald-700">
+                  + ₹{formatCurrency(packagingFreightAmount)}
+                </span>
               </div>
-              <div className="flex gap-2 items-center">
-                <input
-                  type="number"
-                  min="0"
-                  step="50"
-                  value={packagingFreightAmount || ''}
-                  onChange={(e) => setPackagingFreightAmount(Math.max(0, parseFloat(e.target.value) || 0))}
-                  placeholder="e.g. 500"
-                  className="w-full text-sm font-bold px-3 py-2 rounded-xl bg-white/10 border border-purple-300/30 text-white placeholder-purple-300/40 focus:ring-2 focus:ring-purple-400 outline-none"
-                />
-              </div>
+              <input
+                type="number"
+                min="0"
+                step="50"
+                value={packagingFreightAmount || ''}
+                onChange={(e) => setPackagingFreightAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                placeholder="e.g. 500"
+                className="w-full text-sm font-semibold px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:bg-white outline-none transition"
+              />
               <div className="flex flex-wrap gap-1.5 pt-0.5">
                 {[0, 250, 500, 1000, 1500].map((amt) => (
                   <button
                     key={amt}
                     type="button"
                     onClick={() => setPackagingFreightAmount(amt)}
-                    className={`text-[11px] px-2.5 py-0.5 rounded-lg font-semibold border transition ${
+                    className={`text-[11px] px-2.5 py-1 rounded-lg font-bold border transition ${
                       packagingFreightAmount === amt
-                        ? 'bg-emerald-500/30 border-emerald-400 text-emerald-200'
-                        : 'bg-white/5 border-white/10 text-purple-200 hover:bg-white/10'
+                        ? 'bg-purple-100 border-purple-400 text-purple-900 shadow-xs'
+                        : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
                     ₹{amt}
@@ -335,31 +342,33 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
             </div>
 
             {/* Row 3: Less Deductions / Discount in % */}
-            <div className="space-y-1.5 border-b border-purple-300/20 pb-3">
+            <div className="space-y-1.5 border-b border-slate-100 pb-3.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-amber-300 flex items-center gap-1">
-                  <Tag className="w-3.5 h-3.5" />
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-purple-600" />
                   <span>3. Less : Deductions / Discount (%)</span>
                 </label>
                 <div className="text-right">
-                  <span className="text-sm font-bold text-amber-300">- ₹{formatCurrency(discountAmount)}</span>
-                  <span className="text-[10px] text-purple-300 block">({discountPercent}% of ₹{formatCurrency(subtotal)})</span>
+                  <span className="text-sm font-bold text-rose-600">
+                    - ₹{formatCurrency(discountAmount)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block font-medium">
+                    ({discountPercent}% of ₹{formatCurrency(subtotal)})
+                  </span>
                 </div>
               </div>
-              <div className="flex gap-2 items-center">
-                <div className="relative w-full">
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    value={discountPercent || ''}
-                    onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
-                    placeholder="Enter discount % (e.g. 5)"
-                    className="w-full text-sm font-bold px-3 py-2 pr-8 rounded-xl bg-white/10 border border-purple-300/30 text-white placeholder-purple-300/40 focus:ring-2 focus:ring-purple-400 outline-none"
-                  />
-                  <span className="absolute right-3 top-2.5 text-xs font-bold text-purple-300">%</span>
-                </div>
+              <div className="relative w-full">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={discountPercent || ''}
+                  onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                  placeholder="Enter discount % (e.g. 5)"
+                  className="w-full text-sm font-semibold px-3.5 py-2.5 pr-8 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:bg-white outline-none transition"
+                />
+                <span className="absolute right-3.5 top-2.5 text-xs font-bold text-slate-400">%</span>
               </div>
               <div className="flex flex-wrap gap-1.5 pt-0.5">
                 {[0, 2, 5, 7.5, 10, 15].map((pct) => (
@@ -367,10 +376,10 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
                     key={pct}
                     type="button"
                     onClick={() => setDiscountPercent(pct)}
-                    className={`text-[11px] px-2.5 py-0.5 rounded-lg font-semibold border transition ${
+                    className={`text-[11px] px-2.5 py-1 rounded-lg font-bold border transition ${
                       discountPercent === pct
-                        ? 'bg-amber-500/30 border-amber-400 text-amber-200'
-                        : 'bg-white/5 border-white/10 text-purple-200 hover:bg-white/10'
+                        ? 'bg-purple-100 border-purple-400 text-purple-900 shadow-xs'
+                        : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
                     {pct}%
@@ -380,24 +389,30 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
             </div>
 
             {/* Row 4: Balance Sub. Total */}
-            <div className="flex items-center justify-between bg-white/10 px-3 py-2.5 rounded-xl border border-white/15">
+            <div className="flex items-center justify-between bg-slate-50 px-3.5 py-3 rounded-xl border border-slate-200">
               <div>
-                <span className="text-xs font-bold text-purple-100 block">4. Balance Sub. Total</span>
-                <span className="text-[10px] text-purple-300">Basic + Pkg/Freight - Discount</span>
+                <span className="text-xs font-bold text-slate-800 block">
+                  4. Balance Sub. Total
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  Basic + Pkg/Freight - Discount
+                </span>
               </div>
-              <span className="text-base font-extrabold text-white tracking-tight">
+              <span className="text-base font-extrabold text-slate-900 tracking-tight">
                 ₹{formatCurrency(balanceSubTotal)}
               </span>
             </div>
 
             {/* Row 5: GST Selection & Amount */}
-            <div className="space-y-2 border-b border-purple-300/20 pb-3">
+            <div className="space-y-2 border-b border-slate-100 pb-3.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-purple-200 flex items-center gap-1">
-                  <Percent className="w-3.5 h-3.5 text-sky-300" />
-                  <span>5. Add : GST ({gstRate}%)</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <Percent className="w-3.5 h-3.5 text-purple-600" />
+                  <span>5. Add : GST Tax ({gstRate}%)</span>
                 </span>
-                <span className="text-sm font-bold text-sky-200">+ ₹{formatCurrency(gstAmount)}</span>
+                <span className="text-sm font-bold text-purple-700">
+                  + ₹{formatCurrency(gstAmount)}
+                </span>
               </div>
               <div className="grid grid-cols-5 gap-1.5">
                 {[0, 5, 12, 18, 28].map((rate) => (
@@ -405,10 +420,10 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
                     key={rate}
                     type="button"
                     onClick={() => setGstRate(rate)}
-                    className={`py-1.5 rounded-xl text-xs font-bold border transition ${
+                    className={`py-2 rounded-xl text-xs font-bold border transition ${
                       gstRate === rate
-                        ? 'bg-sky-500/30 border-sky-400 text-sky-100 shadow-sm'
-                        : 'bg-white/5 border-white/10 text-purple-200 hover:bg-white/10'
+                        ? 'bg-purple-600 border-purple-600 text-white shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
                     {rate}%
@@ -418,20 +433,22 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
             </div>
 
             {/* Row 6: GRAND TOTAL */}
-            <div className="pt-1 flex items-baseline justify-between">
+            <div className="bg-purple-50/80 border border-purple-200/90 rounded-2xl p-4 flex items-baseline justify-between">
               <div>
-                <span className="text-xs font-extrabold uppercase tracking-wider text-purple-300 block">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-purple-900 block">
                   6. GRAND TOTAL
                 </span>
-                <span className="text-[11px] text-purple-200 italic line-clamp-2 max-w-[220px]">
+                <span className="text-[11px] text-purple-800/90 italic line-clamp-2 max-w-[210px] mt-0.5">
                   {numberToWordsIndian(grandTotal)}
                 </span>
               </div>
               <div className="text-right">
-                <span className="text-2xl font-black text-white tracking-tight">
+                <span className="text-2xl font-black text-purple-950 tracking-tight">
                   ₹{formatCurrency(grandTotal)}
                 </span>
-                <span className="block text-[10px] text-purple-300 font-medium">Inclusive of GST</span>
+                <span className="block text-[10px] text-purple-700 font-semibold mt-0.5">
+                  Inclusive of GST
+                </span>
               </div>
             </div>
           </div>
