@@ -109,6 +109,10 @@ export interface ProformaInvoice {
   deliveryPeriod: string;
   gstRate: number;
   subtotal: number;
+  packagingFreightAmount?: number; // Add: Packaging, Forwarding, Freight
+  discountPercent?: number; // Less: Deductions / Discount in %
+  discountAmount?: number; // Calculated discount amount
+  balanceSubTotal?: number; // Balance Sub. Total = subtotal + packagingFreight - discount
   gstAmount: number;
   grandTotal: number;
   status: 'Draft' | 'Sent' | 'Approved' | 'Rejected';

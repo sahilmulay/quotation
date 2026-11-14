@@ -79,7 +79,7 @@ export const ProformaList: React.FC<ProformaListProps> = ({
                 </span>
                 <div className="flex items-center gap-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase">Total:</span>
-                  <span className="text-sm font-extrabold text-slate-900">₹{formatCurrency(pi.subtotal || pi.grandTotal)}</span>
+                  <span className="text-sm font-extrabold text-slate-900">₹{formatCurrency(pi.grandTotal || pi.subtotal)}</span>
                 </div>
               </div>
             </div>

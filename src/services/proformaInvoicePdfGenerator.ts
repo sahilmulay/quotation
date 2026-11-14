@@ -1,10 +1,9 @@
 import { jsPDF } from 'jspdf';
 import { CompanyDetails, ProformaInvoice } from '../types';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatDate, numberToWordsIndian } from '../utils/formatters';
 
 /**
  * Dynamic Auto-Fit Text Helper for jsPDF
- * Dynamically shrinks font size so that large text never spills outside its box
  */
 function drawAutoScaledText(
   doc: jsPDF,
@@ -28,7 +27,16 @@ function drawAutoScaledText(
 
 /**
  * High-Precision Vector PDF Generator for Proforma Invoice
- * Exact 1:1 reproduction with dedicated Company Bank Details in Commercial Terms
+ * Exact 1:1 reproduction of the official physical Apex Industries Proforma Invoice template
+ * with 6-row financial breakdown:
+ * 1. TOTAL -
+ * 2. Add: Other Taxes & Levies (Packing, Forwarding, Freight)
+ * 3. Less: Deductions / Discount Etc. (%)
+ * 4. Balance Sub. Total
+ * 5. Add: GST @ %
+ * 6. GRAND TOTAL
+ * + Rs in words
+ * + Company's Bank Details
  */
 export function generateProformaInvoicePDF(
   pi: ProformaInvoice,
@@ -54,7 +62,6 @@ export function generateProformaInvoicePDF(
   doc.setTextColor(15, 44, 89); // Deep Apex Navy
   doc.text('PROFORMA INVOICE', 105, 20, { align: 'center' });
 
-  // Underline below PROFORMA INVOICE
   doc.setLineWidth(0.4);
   doc.setDrawColor(15, 44, 89);
   doc.line(74, 22, 136, 22);
@@ -86,7 +93,7 @@ export function generateProformaInvoicePDF(
   doc.setTextColor(15, 44, 89);
   doc.text(`GSTN No -${company.gstn || '27ABDPM6031D1Z1'}`, 105, 57, { align: 'center' });
 
-  // Horizontal line below header (Y = 63)
+  // Line below header (Y = 63)
   doc.setDrawColor(30, 41, 59);
   doc.setLineWidth(0.4);
   doc.line(leftX, 63, rightX, 63);
@@ -94,28 +101,16 @@ export function generateProformaInvoicePDF(
   // ==========================================
   // 4. CUSTOMER & PI DETAILS BOX (Y: 63 to 89)
   // ==========================================
-  // Vertical split at X = 120 (Left = Customer, Right = PI Meta)
-  doc.line(120, 63, 120, 89);
-  // Horizontal split in Right box (Y = 76)
-  doc.line(120, 76, rightX, 76);
-  // Vertical split for Dates in Right box: at 166
-  doc.line(166, 63, 166, 89);
+  doc.line(120, 63, 120, 89); // Vertical split
+  doc.line(120, 76, rightX, 76); // Horizontal split
+  doc.line(166, 63, 166, 89); // Date column split
 
-  // Static Customer Label
+  // Customer Label & Details
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(30, 41, 59);
   doc.text('To,', 14, 68.5);
 
-  // Static PI Details Labels
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text('P.I. No.', 122.5, 70);
-  doc.text('Date :', 168.5, 70);
-  doc.text('Ref. No.', 122.5, 83);
-  doc.text('Date :', 168.5, 83);
-
-  // Dynamic Customer Details
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
   drawAutoScaledText(doc, pi.customerName || '', 14, 73.5, 102, 10.5, 7.5);
@@ -125,12 +120,22 @@ export function generateProformaInvoicePDF(
   const splitAddress = doc.splitTextToSize(pi.customerAddress || '', 102);
   doc.text(splitAddress, 14, 79);
 
-  // Dynamic PI Metadata
+  // PI Details Labels & Values
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(51, 65, 85);
+  doc.text('P.I. No.', 122.5, 70);
+  doc.text('Date :', 168.5, 70);
+  doc.text('Ref. No.', 122.5, 83);
+  doc.text('Date :', 168.5, 83);
+
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(15, 44, 89);
   drawAutoScaledText(doc, pi.piNo || '', 134, 70, 30.5, 9.5, 6);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
+  doc.setTextColor(51, 65, 85);
   doc.text(formatDate(pi.piDate), 179, 70);
 
   drawAutoScaledText(doc, pi.refNo || '-', 136, 83, 28.5, 9, 6);
@@ -140,68 +145,59 @@ export function generateProformaInvoicePDF(
   doc.text(formatDate(pi.refDate) || '-', 179, 83);
 
   // ==========================================
-  // 5. SALUTATION SECTION (Y: 89 to 102)
+  // 5. SALUTATION SECTION (Y: 89 to 100)
   // ==========================================
   doc.line(leftX, 89, rightX, 89);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
+  doc.setFontSize(9);
   doc.setTextColor(30, 41, 59);
-  doc.text('Dear Sir,', 14, 94.5);
+  doc.text('Dear Sir,', 14, 93.5);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.text(
-    'With reference to your above mentioned enquiry, we submit our lowest offer as follows.',
+    'With reference to your above mentioned enquiry, we submit our proforma invoice as follows.',
     24,
-    99.5
+    97.5
   );
 
   // ==========================================
-  // 6. TABLE HEADER & COLUMN STRUCTURE (Y: 102 to 218)
+  // 6. TABLE HEADER & COLUMN STRUCTURE (Y: 100 to 180)
   // ==========================================
-  doc.line(leftX, 102, rightX, 102);
-  doc.line(leftX, 110, rightX, 110);
+  doc.line(leftX, 100, rightX, 100);
+  doc.line(leftX, 107, rightX, 107);
 
   const colX = [10, 25, 125, 144, 168, 200];
 
+  // Draw vertical column grid lines down to table end (Y = 180)
   colX.forEach((x) => {
-    doc.line(x, 102, x, 210);
+    doc.line(x, 100, x, 180);
   });
 
   // Table Header Labels
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
+  doc.setFontSize(9);
   doc.setTextColor(15, 44, 89);
-  doc.text('S. No.', 17.5, 107, { align: 'center' });
-  doc.text('Description', 75, 107, { align: 'center' });
-  doc.text('Qty.', 134.5, 107, { align: 'center' });
-  doc.text('Unit Rate', 156, 107, { align: 'center' });
-  doc.text('Amount', 184, 107, { align: 'center' });
+  doc.text('S. No.', 17.5, 105, { align: 'center' });
+  doc.text('Description', 75, 105, { align: 'center' });
+  doc.text('Qty.', 134.5, 105, { align: 'center' });
+  doc.text('Rate', 156, 105, { align: 'center' });
+  doc.text('Amount', 184, 105, { align: 'center' });
 
-  // Table items bottom line (Y = 210)
-  doc.line(leftX, 210, rightX, 210);
-
-  // TOTAL Row (Y: 210 to 218)
-  doc.line(colX[0], 210, colX[0], 218);
-  doc.line(colX[4], 210, colX[4], 218);
-  doc.line(colX[5], 210, colX[5], 218);
-  doc.line(leftX, 218, rightX, 218);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.text('TOTAL', 165, 215.5, { align: 'right' });
+  // Table items bottom line (Y = 180)
+  doc.line(leftX, 180, rightX, 180);
 
   // ==========================================
-  // DYNAMIC LINE ITEMS (Y: 116.5 to 208)
+  // LINE ITEMS RENDERING (Y: 112 to 178)
   // ==========================================
-  let currentY = 116.5;
-  const rowMaxY = 208;
+  let currentY = 113;
+  const rowMaxY = 177;
 
   pi.items.forEach((item, index) => {
     if (currentY >= rowMaxY) return;
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9.5);
+    doc.setFontSize(9);
     doc.setTextColor(51, 65, 85);
     doc.text(String(item.srNo || index + 1), 17.5, currentY, { align: 'center' });
 
@@ -211,123 +207,190 @@ export function generateProformaInvoicePDF(
 
     doc.text(String(item.quantity || 1), 134.5, currentY, { align: 'center' });
 
-    drawAutoScaledText(doc, formatCurrency(item.unitRate), 166, currentY, 21, 9.5, 7, { align: 'right' });
+    drawAutoScaledText(doc, formatCurrency(item.unitRate), 166, currentY, 21, 9, 7, { align: 'right' });
 
     doc.setFont('helvetica', 'bold');
-    drawAutoScaledText(doc, formatCurrency(item.amount), 198, currentY, 29, 9.5, 7, { align: 'right' });
+    drawAutoScaledText(doc, formatCurrency(item.amount), 198, currentY, 29, 9, 7, { align: 'right' });
 
     const linesCount = Array.isArray(descLines) ? descLines.length : 1;
-    currentY += Math.max(linesCount * 4.5 + 2.5, 7.5);
+    currentY += Math.max(linesCount * 4.2 + 2, 6.5);
   });
 
-  const piTotal =
-    pi.items && pi.items.length > 0
-      ? pi.items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
-      : (pi.subtotal || pi.grandTotal);
+  // ==========================================
+  // 7. FINANCIAL BREAKDOWN ROWS (Y: 180 to 222) - Exact Physical Template
+  // ==========================================
+  // Row Heights: 7mm each -> 6 rows = 42mm total (180 to 222)
+  const itemsSubtotal = pi.items && pi.items.length > 0
+    ? pi.items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
+    : pi.subtotal;
 
+  const pkgFreight = Number(pi.packagingFreightAmount) || 0;
+  const discPercent = Number(pi.discountPercent) || 0;
+  const discAmount = pi.discountAmount !== undefined
+    ? Number(pi.discountAmount)
+    : Math.round((itemsSubtotal * discPercent) / 100);
+
+  const balanceSubTotal = pi.balanceSubTotal !== undefined
+    ? Number(pi.balanceSubTotal)
+    : Math.max(0, itemsSubtotal + pkgFreight - discAmount);
+
+  const gstRateVal = pi.gstRate ?? 18;
+  const gstAmountVal = pi.gstAmount !== undefined
+    ? Number(pi.gstAmount)
+    : Math.round((balanceSubTotal * gstRateVal) / 100);
+
+  const finalGrandTotal = pi.grandTotal !== undefined
+    ? Number(pi.grandTotal)
+    : balanceSubTotal + gstAmountVal;
+
+  // Vertical column dividers for the breakdown table:
+  // Left label: 10 to 65
+  // Middle detail: 65 to 168
+  // Amount column: 168 to 200
+  const breakdownDividerX = 65;
+  const amountColX = 168;
+
+  // Vertical lines for breakdown section (Y: 180 to 222)
+  doc.setDrawColor(30, 41, 59);
+  doc.setLineWidth(0.4);
+  doc.line(amountColX, 180, amountColX, 222);
+  doc.line(breakdownDividerX, 187, breakdownDividerX, 201); // only for middle detail rows 2 & 3
+  doc.line(breakdownDividerX, 208, breakdownDividerX, 215); // only for row 5 (GST)
+
+  // --- Row 1: TOTAL - (Basic items sum) --- Y: 180 to 187
   doc.setFont('helvetica', 'bold');
-  drawAutoScaledText(doc, formatCurrency(piTotal), 198, 215.5, 30, 10.5, 7.5, { align: 'right' });
+  doc.setFontSize(9);
+  doc.setTextColor(15, 44, 89);
+  doc.text('TOTAL -', 14, 185);
+  drawAutoScaledText(doc, formatCurrency(itemsSubtotal), 198, 185, 30, 9.5, 7, { align: 'right' });
+  doc.line(leftX, 187, rightX, 187);
 
-  // ==========================================
-  // 7. TERMS, BANK DETAILS & SIGNATURE (Y: 218 to 272)
-  // ==========================================
-  doc.line(120, 218, 120, 272); // Vertical divider
-
-  // Left Column: Terms + Bank Details
+  // --- Row 2: Add : Other Taxes & Levies --- Y: 187 to 194
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(51, 65, 85);
+  doc.text('Add : Other Taxes & Levies', 14, 192);
 
-  doc.text('Warranty -', 14, 223.5);
-  doc.line(10, 225.5, 120, 225.5);
+  doc.setFont('helvetica', 'italic');
+  doc.text('Packing, Forwarding, Freight', breakdownDividerX + 3, 192);
 
-  doc.text('Packing forwarding : -', 14, 229.5);
-  doc.line(10, 231.5, 120, 231.5);
+  doc.setFont('helvetica', 'normal');
+  drawAutoScaledText(doc, pkgFreight > 0 ? formatCurrency(pkgFreight) : '0.00', 198, 192, 30, 9, 7, { align: 'right' });
+  doc.line(leftX, 194, rightX, 194);
 
-  doc.text('Freight :-', 14, 235.5);
-  doc.line(10, 237.5, 120, 237.5);
+  // --- Row 3: Less : Deductions/Discount Etc. --- Y: 194 to 201
+  doc.setFont('helvetica', 'normal');
+  doc.text('Less : Deductions/Discount Etc.', 14, 199);
 
-  doc.text('Payment:-', 14, 241.5);
-  doc.line(10, 243.5, 120, 243.5);
+  doc.setFont('helvetica', 'italic');
+  doc.text(`${discPercent}%`, breakdownDividerX + 3, 199);
 
-  // Dedicated Bank Details Box in Left Column (Y: 244 to 272)
+  doc.setFont('helvetica', 'normal');
+  const discText = discAmount > 0 ? `- ${formatCurrency(discAmount)}` : '0.00';
+  drawAutoScaledText(doc, discText, 198, 199, 30, 9, 7, { align: 'right' });
+  doc.line(leftX, 201, rightX, 201);
+
+  // --- Row 4: Balance Sub. Total --- Y: 201 to 208
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(15, 44, 89);
+  doc.text('Balance Sub. Total', 14, 206);
+  drawAutoScaledText(doc, formatCurrency(balanceSubTotal), 198, 206, 30, 9.5, 7, { align: 'right' });
+  doc.line(leftX, 208, rightX, 208);
+
+  // --- Row 5: Add : GST --- Y: 208 to 215
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(51, 65, 85);
+  doc.text('Add : GST', 14, 213);
+
+  doc.setFont('helvetica', 'italic');
+  doc.text(`GST @ ${gstRateVal}%`, breakdownDividerX + 3, 213);
+
+  doc.setFont('helvetica', 'normal');
+  drawAutoScaledText(doc, formatCurrency(gstAmountVal), 198, 213, 30, 9, 7, { align: 'right' });
+  doc.line(leftX, 215, rightX, 215);
+
+  // --- Row 6: GRAND TOTAL : --- Y: 215 to 223
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  doc.setTextColor(15, 44, 89);
+  doc.text('GRAND TOTAL :', 14, 221);
+  drawAutoScaledText(doc, `\u20B9 ${formatCurrency(finalGrandTotal)}`, 198, 221, 30, 11, 8, { align: 'right' });
+  doc.line(leftX, 223, rightX, 223);
+
+  // ==========================================
+  // 8. RS IN WORDS (Y: 223 to 230)
+  // ==========================================
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(15, 44, 89);
-  doc.text('BANK DETAILS :', 14, 249);
+  doc.text('Rs in words -', 14, 228);
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(8.5);
+  doc.setTextColor(30, 41, 59);
+  const wordsText = numberToWordsIndian(finalGrandTotal);
+  drawAutoScaledText(doc, wordsText, 37, 228, 160, 8.5, 6.5);
+  doc.line(leftX, 231, rightX, 231);
+
+  // ==========================================
+  // 9. COMPANY'S BANK DETAILS & SIGNATURE (Y: 231 to 272)
+  // ==========================================
+  // Vertical divider at X = 120 (Left = Bank Details, Right = Signature)
+  doc.line(120, 231, 120, 272);
+
+  // --- Left Side: Company's Bank Details ---
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(15, 44, 89);
+  doc.text("Company's Bank Details", 14, 237);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(8.5);
   doc.setTextColor(51, 65, 85);
 
-  const bankName = company.bankName || 'State Bank of India';
-  const acNo = company.accountNo || '-';
-  const ifsc = company.ifscCode || '-';
-  const branch = company.branchName || '-';
+  const bankName = company.bankName || 'ICICI Bank';
+  const acNo = company.accountNo || '636305000164';
+  const branchIfsc = `${company.branchName || 'Kavalapur'} & ${company.ifscCode || 'ICIC0006363'}`;
 
-  doc.text(`Bank Name : ${bankName}`, 14, 254.5);
-  doc.text(`A/c No.     : ${acNo}`, 14, 259.5);
-  doc.text(`IFSC Code : ${ifsc}`, 14, 264.5);
-  doc.text(`Branch      : ${branch}`, 14, 269.5);
+  doc.text('Bank Name', 14, 244);
+  doc.text(`–   ${bankName}`, 42, 244);
 
-  // Dynamic values for Left terms
-  if (pi.warranty) {
-    drawAutoScaledText(doc, pi.warranty, 31, 223.5, 87, 8.5, 6);
-  }
-  if (pi.packingForwarding) {
-    drawAutoScaledText(doc, pi.packingForwarding, 48, 229.5, 70, 8.5, 6);
-  }
-  if (pi.freight) {
-    drawAutoScaledText(doc, pi.freight, 29, 235.5, 89, 8.5, 6);
-  }
-  if (pi.paymentTerms) {
-    drawAutoScaledText(doc, pi.paymentTerms, 31, 241.5, 87, 8.5, 6);
-  }
+  doc.text('Current A/c No.', 14, 251);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`–   ${acNo}`, 42, 251);
 
-  // Right Column: Validity, Tax, Delivery & Signatures
   doc.setFont('helvetica', 'normal');
+  doc.text('Branch & IFS Code', 14, 258);
+  doc.text(`–   ${branchIfsc}`, 42, 258);
+
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('* Subject to Sangli Jurisdiction', 14, 267);
+
+  // --- Right Side: Signature Block ---
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(51, 65, 85);
+  doc.text('Thanking you,', 160, 238, { align: 'center' });
 
-  doc.text('Validity –', 123, 224);
-  doc.line(120, 226.5, 200, 226.5);
+  doc.setFontSize(9.5);
+  doc.setTextColor(15, 44, 89);
+  doc.text(`For ${company.name || 'APEX INDUSTRIES'}`, 160, 243.5, { align: 'center' });
 
-  doc.text('Sales Tax :- GST @', 123, 230.5);
-  doc.text('% Extra', 162, 230.5);
-  doc.line(120, 233, 200, 233);
-
-  doc.text('Delivery Period :-', 123, 237);
-  doc.line(120, 239.5, 200, 239.5);
+  // Stamp Seal
+  if (company.showStamp) {
+    drawStampSeal(doc, 160, 254);
+  }
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(15, 44, 89);
-  doc.text('Thanking you,', 160, 244, { align: 'center' });
-  doc.setFontSize(10);
-  doc.text(`For ${company.name || 'APEX INDUSTRIES'}`, 160, 249, { align: 'center' });
-
-  // Right column dynamic values
+  doc.text('Authorised Signatory', 160, 265, { align: 'center' });
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  if (pi.validity) {
-    drawAutoScaledText(doc, pi.validity, 138, 224, 60, 9, 6.5);
-  }
-  doc.setFont('helvetica', 'bold');
-  doc.text(String(pi.gstRate ?? 18), 154, 230.5);
-
-  doc.setFont('helvetica', 'normal');
-  if (pi.deliveryPeriod) {
-    drawAutoScaledText(doc, pi.deliveryPeriod, 150, 237, 48, 9, 6.5);
-  }
-
-  // Signatory Stamp & Name
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(15, 44, 89);
-  doc.text(company.signatoryName || 'Mr. Dilip Mulay', 160, 269, { align: 'center' });
-
-  if (company.showStamp) {
-    drawStampSeal(doc, 160, 258);
-  }
+  doc.text(company.signatoryName || 'Mr. Dilip Mulay', 160, 269.5, { align: 'center' });
 
   return doc;
 }

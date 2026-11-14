@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Customer, CompanyDetails, ProformaInvoice, QuotationItem } from '../../types';
 import { Step1Customer } from '../QuotationWizard/Step1Customer';
 import { Step3LineItems } from '../QuotationWizard/Step3LineItems';
-import { Step4Terms } from '../QuotationWizard/Step4Terms';
 import { db, getNextSuggestedPiNo, incrementPiCounter } from '../../db/db';
 import { downloadProformaInvoicePDF, printProformaInvoicePDF } from '../../services/proformaInvoicePdfGenerator';
 import { downloadProformaInvoiceJPG, generateProformaInvoiceImageBlob } from '../../services/imageGenerator';
 import { openProformaInvoiceShareSheet } from '../../services/shareService';
+import { formatCurrency, numberToWordsIndian } from '../../utils/formatters';
 import {
   ArrowLeft, ArrowRight, CheckCircle2, RotateCcw, AlertTriangle,
-  Hash, Calendar, FileCode, Clock, FileDown, Printer, Eye, Share2, FileCheck, Landmark, Check
+  Hash, Calendar, FileCode, Clock, FileDown, Printer, Eye, Share2, FileCheck, Landmark, Check,
+  Percent, Truck, Tag, CreditCard
 } from 'lucide-react';
 
 interface ProformaWizardProps {
@@ -40,12 +41,20 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
     initialPi?.items || [{ id: 'item-1', srNo: 1, description: '', quantity: 1, unitRate: 0, amount: 0 }]
   );
   const [warranty, setWarranty] = useState(initialPi?.warranty || '12 Months against manufacturing defects');
-  const [packingForwarding, setPackingForwarding] = useState(initialPi?.packingForwarding || 'Included in above rates');
-  const [freight, setFreight] = useState(initialPi?.freight || 'Extra at actual / To Pay');
+  const [packingForwarding, _setPackingForwarding] = useState(initialPi?.packingForwarding || 'Included in above rates');
+  const [freight, _setFreight] = useState(initialPi?.freight || 'Extra at actual / To Pay');
   const [paymentTerms, setPaymentTerms] = useState(initialPi?.paymentTerms || '100% against delivery');
   const [validity, setValidity] = useState(initialPi?.validity || '30 Days');
   const [deliveryPeriod, setDeliveryPeriod] = useState(initialPi?.deliveryPeriod || '1 to 2 Weeks');
   const [gstRate, setGstRate] = useState(initialPi?.gstRate ?? 18);
+
+  // Financial adjustments as per official physical Proforma Invoice template
+  const [packagingFreightAmount, setPackagingFreightAmount] = useState<number>(
+    initialPi?.packagingFreightAmount ?? 0
+  );
+  const [discountPercent, setDiscountPercent] = useState<number>(
+    initialPi?.discountPercent ?? 0
+  );
 
   useEffect(() => {
     if (!initialPi && !piNo) {
@@ -53,15 +62,29 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
     }
   }, [initialPi]);
 
+  // Financial Formulas:
+  // 1. Line Items Total (Basic)
   const subtotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-  const gstAmount = Math.round((subtotal * (gstRate || 0)) / 100);
-  const grandTotal = subtotal;
+  // 2. Discount Amount calculated against items total based on user's percentage
+  const discountAmount = Math.round((subtotal * (discountPercent || 0)) / 100);
+  // 3. Balance Sub Total = Basic + Packaging/Freight - Discount
+  const balanceSubTotal = Math.max(0, subtotal + (packagingFreightAmount || 0) - discountAmount);
+  // 4. GST calculated on Balance Sub Total
+  const gstAmount = Math.round((balanceSubTotal * (gstRate || 0)) / 100);
+  // 5. Grand Total = Balance Sub Total + GST
+  const grandTotal = balanceSubTotal + gstAmount;
 
   const currentPi: ProformaInvoice = {
     id: piId,
     piNo, piDate, refNo, refDate, customerName, customerAddress,
     items, warranty, packingForwarding, freight, paymentTerms,
-    validity, deliveryPeriod, gstRate, subtotal, gstAmount, grandTotal,
+    validity, deliveryPeriod, gstRate, subtotal,
+    packagingFreightAmount,
+    discountPercent,
+    discountAmount,
+    balanceSubTotal,
+    gstAmount,
+    grandTotal,
     status: initialPi?.status || 'Draft',
     createdAt: initialPi?.createdAt || Date.now(),
     updatedAt: Date.now(),
@@ -253,16 +276,243 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
       )}
 
       {currentStep === 4 && (
-        <Step4Terms
-          warranty={warranty} packingForwarding={packingForwarding} freight={freight}
-          paymentTerms={paymentTerms} validity={validity} deliveryPeriod={deliveryPeriod}
-          gstRate={gstRate} subtotal={subtotal}
-          onUpdate={({ warranty, packingForwarding, freight, paymentTerms, validity, deliveryPeriod, gstRate }) => {
-            setWarranty(warranty); setPackingForwarding(packingForwarding); setFreight(freight);
-            setPaymentTerms(paymentTerms); setValidity(validity); setDeliveryPeriod(deliveryPeriod);
-            setGstRate(gstRate);
-          }}
-        />
+        <div className="space-y-4">
+          {/* Banner */}
+          <div className="flex items-center space-x-2.5 bg-purple-50 border border-purple-200 rounded-2xl p-3.5">
+            <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold">
+              4
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm">Financial Adjustments & Terms</h3>
+              <p className="text-xs text-slate-500">Packaging, Discount %, Balance Sub Total & GST</p>
+            </div>
+          </div>
+
+          {/* Interactive Financial Breakdown Card */}
+          <div className="bg-gradient-to-br from-[#1E1B4B] via-[#2E1065] to-[#3B0764] text-white rounded-3xl p-4 sm:p-5 shadow-xl space-y-3.5 border border-purple-400/20">
+            {/* Row 1: Line Items Total */}
+            <div className="flex items-center justify-between border-b border-purple-300/20 pb-2.5">
+              <span className="text-xs font-semibold text-purple-200">1. Line Items Total (Basic)</span>
+              <span className="text-base font-extrabold text-white">₹{formatCurrency(subtotal)}</span>
+            </div>
+
+            {/* Row 2: Add Packaging, Forwarding, Freight */}
+            <div className="space-y-1.5 border-b border-purple-300/20 pb-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-emerald-300 flex items-center gap-1">
+                  <Truck className="w-3.5 h-3.5" />
+                  <span>2. Add : Packaging, Forwarding, Freight (₹)</span>
+                </label>
+                <span className="text-sm font-bold text-emerald-300">+ ₹{formatCurrency(packagingFreightAmount)}</span>
+              </div>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number"
+                  min="0"
+                  step="50"
+                  value={packagingFreightAmount || ''}
+                  onChange={(e) => setPackagingFreightAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                  placeholder="e.g. 500"
+                  className="w-full text-sm font-bold px-3 py-2 rounded-xl bg-white/10 border border-purple-300/30 text-white placeholder-purple-300/40 focus:ring-2 focus:ring-purple-400 outline-none"
+                />
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {[0, 250, 500, 1000, 1500].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setPackagingFreightAmount(amt)}
+                    className={`text-[11px] px-2.5 py-0.5 rounded-lg font-semibold border transition ${
+                      packagingFreightAmount === amt
+                        ? 'bg-emerald-500/30 border-emerald-400 text-emerald-200'
+                        : 'bg-white/5 border-white/10 text-purple-200 hover:bg-white/10'
+                    }`}
+                  >
+                    ₹{amt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Row 3: Less Deductions / Discount in % */}
+            <div className="space-y-1.5 border-b border-purple-300/20 pb-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-amber-300 flex items-center gap-1">
+                  <Tag className="w-3.5 h-3.5" />
+                  <span>3. Less : Deductions / Discount (%)</span>
+                </label>
+                <div className="text-right">
+                  <span className="text-sm font-bold text-amber-300">- ₹{formatCurrency(discountAmount)}</span>
+                  <span className="text-[10px] text-purple-300 block">({discountPercent}% of ₹{formatCurrency(subtotal)})</span>
+                </div>
+              </div>
+              <div className="flex gap-2 items-center">
+                <div className="relative w-full">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={discountPercent || ''}
+                    onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                    placeholder="Enter discount % (e.g. 5)"
+                    className="w-full text-sm font-bold px-3 py-2 pr-8 rounded-xl bg-white/10 border border-purple-300/30 text-white placeholder-purple-300/40 focus:ring-2 focus:ring-purple-400 outline-none"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-purple-300">%</span>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {[0, 2, 5, 7.5, 10, 15].map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() => setDiscountPercent(pct)}
+                    className={`text-[11px] px-2.5 py-0.5 rounded-lg font-semibold border transition ${
+                      discountPercent === pct
+                        ? 'bg-amber-500/30 border-amber-400 text-amber-200'
+                        : 'bg-white/5 border-white/10 text-purple-200 hover:bg-white/10'
+                    }`}
+                  >
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Row 4: Balance Sub. Total */}
+            <div className="flex items-center justify-between bg-white/10 px-3 py-2.5 rounded-xl border border-white/15">
+              <div>
+                <span className="text-xs font-bold text-purple-100 block">4. Balance Sub. Total</span>
+                <span className="text-[10px] text-purple-300">Basic + Pkg/Freight - Discount</span>
+              </div>
+              <span className="text-base font-extrabold text-white tracking-tight">
+                ₹{formatCurrency(balanceSubTotal)}
+              </span>
+            </div>
+
+            {/* Row 5: GST Selection & Amount */}
+            <div className="space-y-2 border-b border-purple-300/20 pb-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-purple-200 flex items-center gap-1">
+                  <Percent className="w-3.5 h-3.5 text-sky-300" />
+                  <span>5. Add : GST ({gstRate}%)</span>
+                </span>
+                <span className="text-sm font-bold text-sky-200">+ ₹{formatCurrency(gstAmount)}</span>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5">
+                {[0, 5, 12, 18, 28].map((rate) => (
+                  <button
+                    key={rate}
+                    type="button"
+                    onClick={() => setGstRate(rate)}
+                    className={`py-1.5 rounded-xl text-xs font-bold border transition ${
+                      gstRate === rate
+                        ? 'bg-sky-500/30 border-sky-400 text-sky-100 shadow-sm'
+                        : 'bg-white/5 border-white/10 text-purple-200 hover:bg-white/10'
+                    }`}
+                  >
+                    {rate}%
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Row 6: GRAND TOTAL */}
+            <div className="pt-1 flex items-baseline justify-between">
+              <div>
+                <span className="text-xs font-extrabold uppercase tracking-wider text-purple-300 block">
+                  6. GRAND TOTAL
+                </span>
+                <span className="text-[11px] text-purple-200 italic line-clamp-2 max-w-[220px]">
+                  {numberToWordsIndian(grandTotal)}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-black text-white tracking-tight">
+                  ₹{formatCurrency(grandTotal)}
+                </span>
+                <span className="block text-[10px] text-purple-300 font-medium">Inclusive of GST</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Commercial Terms Section */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 space-y-4">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-1.5 border-b border-slate-100 pb-2">
+              <CreditCard className="w-4 h-4 text-purple-600" />
+              <span>Commercial Terms & Delivery</span>
+            </h4>
+
+            {/* Payment Terms */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                Payment Terms
+              </label>
+              <input
+                type="text"
+                value={paymentTerms}
+                onChange={(e) => setPaymentTerms(e.target.value)}
+                placeholder="e.g. 100% against delivery"
+                className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50/50 outline-none"
+              />
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {['100% against delivery', '30% Adv, 70% against delivery', '100% Advance', '30 Days Credit'].map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setPaymentTerms(opt)}
+                    className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Delivery Period & Validity */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  Delivery Period
+                </label>
+                <input
+                  type="text"
+                  value={deliveryPeriod}
+                  onChange={(e) => setDeliveryPeriod(e.target.value)}
+                  placeholder="e.g. 1 to 2 Weeks"
+                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50/50 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  Offer Validity
+                </label>
+                <input
+                  type="text"
+                  value={validity}
+                  onChange={(e) => setValidity(e.target.value)}
+                  placeholder="e.g. 30 Days"
+                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50/50 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Warranty & Notes */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                Warranty
+              </label>
+              <input
+                type="text"
+                value={warranty}
+                onChange={(e) => setWarranty(e.target.value)}
+                placeholder="e.g. 12 Months against manufacturing defects"
+                className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50/50 outline-none"
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       {currentStep === 5 && (

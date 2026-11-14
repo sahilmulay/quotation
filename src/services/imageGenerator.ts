@@ -1,5 +1,5 @@
 import { CompanyDetails, Quotation, PurchaseOrder, ProformaInvoice } from '../types';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatDate, numberToWordsIndian } from '../utils/formatters';
 
 /**
  * Dynamic Auto-Fit Text Helper for HTML5 Canvas
@@ -65,6 +65,11 @@ interface CommonDocData {
   gstRate: number;
   subtotal: number;
   grandTotal: number;
+  packagingFreightAmount?: number;
+  discountPercent?: number;
+  discountAmount?: number;
+  balanceSubTotal?: number;
+  gstAmount?: number;
 }
 
 async function renderDocToCanvasBlob(
@@ -283,132 +288,336 @@ async function renderDocToCanvasBlob(
     rowY += Math.max(descLines.length * 28 + 15, 45);
   });
 
-  // Table items bottom line (Y = 1215)
-  ctx.beginPath();
-  ctx.moveTo(leftX, 1215);
-  ctx.lineTo(rightX, 1215);
-  ctx.stroke();
+  if (data.type === 'proforma') {
+    // ========================================================
+    // PROFORMA INVOICE 6-ROW FINANCIAL BREAKDOWN & BANK DETAILS
+    // Exact 1:1 match with official physical template
+    // ========================================================
+    const itemsSubtotal =
+      data.items && data.items.length > 0
+        ? data.items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
+        : data.subtotal;
 
-  // TOTAL Row (Y: 1215 to 1260)
-  ctx.beginPath();
-  ctx.moveTo(colX[4], 1215);
-  ctx.lineTo(colX[4], 1260);
-  ctx.moveTo(leftX, 1260);
-  ctx.lineTo(rightX, 1260);
-  ctx.stroke();
+    const pkgFreight = Number(data.packagingFreightAmount) || 0;
+    const discPercent = Number(data.discountPercent) || 0;
+    const discAmount =
+      data.discountAmount !== undefined
+        ? Number(data.discountAmount)
+        : Math.round((itemsSubtotal * discPercent) / 100);
 
-  const totalAmount =
-    data.items && data.items.length > 0
-      ? data.items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
-      : (data.subtotal || data.grandTotal);
+    const balanceSubTotal =
+      data.balanceSubTotal !== undefined
+        ? Number(data.balanceSubTotal)
+        : Math.max(0, itemsSubtotal + pkgFreight - discAmount);
 
-  ctx.fillStyle = '#0F2C59';
-  ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.textAlign = 'right';
-  ctx.fillText('TOTAL', 970, 1246);
-  ctx.fillText(`₹ ${formatCurrency(totalAmount)}`, 1165, 1246);
+    const gstRateVal = data.gstRate ?? 18;
+    const gstAmountVal =
+      data.gstAmount !== undefined
+        ? Number(data.gstAmount)
+        : Math.round((balanceSubTotal * gstRateVal) / 100);
 
-  // 7. TERMS & CONDITIONS AND SIGNATURE (Y: 1260 to 1610)
-  ctx.beginPath();
-  ctx.moveTo(metaSplitX, 1260);
-  ctx.lineTo(metaSplitX, 1610);
-  ctx.stroke();
+    const finalGrandTotal =
+      data.grandTotal !== undefined
+        ? Number(data.grandTotal)
+        : balanceSubTotal + gstAmountVal;
 
-  // Left terms
-  ctx.textAlign = 'left';
+    // Items table bottom line (Y = 1060)
+    ctx.beginPath();
+    ctx.moveTo(leftX, 1060);
+    ctx.lineTo(rightX, 1060);
+    ctx.stroke();
 
-  const termRows = [
-    { label: 'Warranty -', val: data.warranty || '12 Months against manufacturing defects', y: 1295 },
-    { label: 'Packing forwarding : -', val: data.packingForwarding || 'Included in above rates', y: 1335 },
-    { label: 'Freight :-', val: data.freight || 'Extra at actual / To Pay', y: 1375 },
-    { label: 'Payment:-', val: data.paymentTerms || '100% against delivery', y: 1415 },
-  ];
+    const amountDividerX = 985;
+    const detailDividerX = 420;
 
-  termRows.forEach((tr) => {
-    ctx.fillStyle = '#475569';
-    ctx.font = 'bold 18px "Segoe UI", Inter, Arial, sans-serif';
-    ctx.fillText(tr.label, leftX + 20, tr.y);
+    // Vertical line for Amount column in breakdown (Y: 1060 to 1325)
+    ctx.beginPath();
+    ctx.moveTo(amountDividerX, 1060);
+    ctx.lineTo(amountDividerX, 1325);
+    ctx.stroke();
 
-    ctx.fillStyle = '#0F172A';
-    drawAutoScaledCanvasText(ctx, tr.val, leftX + 215, tr.y, 440, 18, 12, 'normal');
+    // Row 1: TOTAL - (Basic items sum) -> Y: 1060 to 1105
+    ctx.fillStyle = '#0F2C59';
+    ctx.font = 'bold 21px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('TOTAL -', leftX + 24, 1092);
+    ctx.textAlign = 'right';
+    ctx.fillText(formatCurrency(itemsSubtotal), 1165, 1092);
 
     ctx.beginPath();
-    ctx.moveTo(leftX, tr.y + 10);
-    ctx.lineTo(metaSplitX, tr.y + 10);
-    ctx.strokeStyle = '#CBD5E1';
-    ctx.lineWidth = 1;
+    ctx.moveTo(leftX, 1105);
+    ctx.lineTo(rightX, 1105);
     ctx.stroke();
-  });
 
-  // Dedicated Bank Details for Proforma, or Note for Quote/PO
-  if (data.type === 'proforma') {
+    // Row 2: Add : Other Taxes & Levies -> Y: 1105 to 1150
+    ctx.fillStyle = '#475569';
+    ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Add : Other Taxes & Levies', leftX + 24, 1137);
+    ctx.font = 'italic 19px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText('Packing, Forwarding, Freight', detailDividerX, 1137);
+    ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(pkgFreight > 0 ? formatCurrency(pkgFreight) : '0.00', 1165, 1137);
+
+    ctx.beginPath();
+    ctx.moveTo(leftX, 1150);
+    ctx.lineTo(rightX, 1150);
+    ctx.stroke();
+
+    // Row 3: Less : Deductions/Discount Etc. -> Y: 1150 to 1195
+    ctx.textAlign = 'left';
+    ctx.fillText('Less : Deductions/Discount Etc.', leftX + 24, 1182);
+    ctx.font = 'italic 19px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(`${discPercent}%`, detailDividerX, 1182);
+    ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(discAmount > 0 ? `- ${formatCurrency(discAmount)}` : '0.00', 1165, 1182);
+
+    ctx.beginPath();
+    ctx.moveTo(leftX, 1195);
+    ctx.lineTo(rightX, 1195);
+    ctx.stroke();
+
+    // Row 4: Balance Sub. Total -> Y: 1195 to 1240
     ctx.fillStyle = '#0F2C59';
-    ctx.font = 'bold 18px "Segoe UI", Inter, Arial, sans-serif';
-    ctx.fillText('BANK DETAILS :', leftX + 20, 1465);
+    ctx.font = 'bold 21px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Balance Sub. Total', leftX + 24, 1227);
+    ctx.textAlign = 'right';
+    ctx.fillText(formatCurrency(balanceSubTotal), 1165, 1227);
 
-    ctx.fillStyle = '#334155';
+    ctx.beginPath();
+    ctx.moveTo(leftX, 1240);
+    ctx.lineTo(rightX, 1240);
+    ctx.stroke();
+
+    // Row 5: Add : GST -> Y: 1240 to 1285
+    ctx.fillStyle = '#475569';
+    ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Add : GST', leftX + 24, 1272);
+    ctx.font = 'italic 19px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(`GST @ ${gstRateVal}%`, detailDividerX, 1272);
+    ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(formatCurrency(gstAmountVal), 1165, 1272);
+
+    ctx.beginPath();
+    ctx.moveTo(leftX, 1285);
+    ctx.lineTo(rightX, 1285);
+    ctx.stroke();
+
+    // Row 6: GRAND TOTAL : -> Y: 1285 to 1330
+    ctx.fillStyle = '#0F2C59';
+    ctx.font = 'bold 24px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('GRAND TOTAL :', leftX + 24, 1318);
+    ctx.textAlign = 'right';
+    ctx.fillText(`₹ ${formatCurrency(finalGrandTotal)}`, 1165, 1318);
+
+    ctx.beginPath();
+    ctx.moveTo(leftX, 1330);
+    ctx.lineTo(rightX, 1330);
+    ctx.stroke();
+
+    // Rs in words Row (Y: 1330 to 1375)
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#0F2C59';
+    ctx.font = 'bold 19px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText('Rs in words -', leftX + 24, 1362);
+    ctx.fillStyle = '#1E293B';
+    ctx.font = 'italic 18px "Segoe UI", Inter, Arial, sans-serif';
+    drawAutoScaledCanvasText(ctx, numberToWordsIndian(finalGrandTotal), leftX + 155, 1362, 940, 18, 12, 'italic');
+
+    ctx.beginPath();
+    ctx.moveTo(leftX, 1375);
+    ctx.lineTo(rightX, 1375);
+    ctx.stroke();
+
+    // Bottom section (Y: 1375 to 1610): Bank Details & Signatures
+    ctx.beginPath();
+    ctx.moveTo(metaSplitX, 1375);
+    ctx.lineTo(metaSplitX, 1610);
+    ctx.stroke();
+
+    // --- Left: Company's Bank Details ---
+    ctx.fillStyle = '#0F2C59';
+    ctx.font = 'bold 21px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText("Company's Bank Details", leftX + 24, 1412);
+
+    ctx.fillStyle = '#475569';
+    ctx.font = '19px "Segoe UI", Inter, Arial, sans-serif';
+
+    const bankName = company.bankName || 'ICICI Bank';
+    const acNo = company.accountNo || '636305000164';
+    const branchIfsc = `${company.branchName || 'Kavalapur'} & ${company.ifscCode || 'ICIC0006363'}`;
+
+    ctx.fillText('Bank Name', leftX + 24, 1452);
+    ctx.fillStyle = '#0F172A';
+    ctx.fillText(`–   ${bankName}`, leftX + 200, 1452);
+
+    ctx.fillStyle = '#475569';
+    ctx.fillText('Current A/c No.', leftX + 24, 1492);
+    ctx.fillStyle = '#0F172A';
+    ctx.font = 'bold 19px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(`–   ${acNo}`, leftX + 200, 1492);
+
+    ctx.font = '19px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillStyle = '#475569';
+    ctx.fillText('Branch & IFS Code', leftX + 24, 1532);
+    ctx.fillStyle = '#0F172A';
+    ctx.fillText(`–   ${branchIfsc}`, leftX + 200, 1532);
+
+    ctx.fillStyle = '#94A3B8';
     ctx.font = '16px "Segoe UI", Inter, Arial, sans-serif';
-    ctx.fillText(`Bank Name : ${company.bankName || 'State Bank of India'}`, leftX + 20, 1495);
-    ctx.fillText(`A/c No.     : ${company.accountNo || '-'}`, leftX + 20, 1525);
-    ctx.fillText(`IFSC Code : ${company.ifscCode || '-'}`, leftX + 20, 1555);
-    ctx.fillText(`Branch      : ${company.branchName || '-'}`, leftX + 20, 1585);
+    ctx.fillText('* Subject to Sangli Jurisdiction', leftX + 24, 1585);
+
+    // --- Right: Authorised Signatory & Stamp ---
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#1E293B';
+    ctx.font = 'bold 19px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText('Thanking you,', 945, 1415);
+
+    ctx.fillStyle = '#0F2C59';
+    ctx.font = 'bold 21px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(`For ${company.name || 'APEX INDUSTRIES'}`, 945, 1445);
+
+    // Stamp circle
+    ctx.save();
+    ctx.strokeStyle = '#4338CA';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(945, 1495, 30, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#4338CA';
+    ctx.font = 'bold 8px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText('APEX INDUSTRIES', 945, 1492);
+    ctx.fillText('SANGLI', 945, 1508);
+    ctx.restore();
+
+    ctx.fillStyle = '#0F2C59';
+    ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText('Authorised Signatory', 945, 1555);
+    ctx.font = '18px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(company.signatoryName || 'Mr. Dilip Mulay', 945, 1585);
   } else {
+    // ========================================================
+    // STANDARD QUOTATION & PURCHASE ORDER LAYOUT
+    // ========================================================
+    // Table items bottom line (Y = 1215)
+    ctx.beginPath();
+    ctx.moveTo(leftX, 1215);
+    ctx.lineTo(rightX, 1215);
+    ctx.stroke();
+
+    // TOTAL Row (Y: 1215 to 1260)
+    ctx.beginPath();
+    ctx.moveTo(colX[4], 1215);
+    ctx.lineTo(colX[4], 1260);
+    ctx.moveTo(leftX, 1260);
+    ctx.lineTo(rightX, 1260);
+    ctx.stroke();
+
+    const totalAmount =
+      data.items && data.items.length > 0
+        ? data.items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
+        : (data.subtotal || data.grandTotal);
+
+    ctx.fillStyle = '#0F2C59';
+    ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('TOTAL', 970, 1246);
+    ctx.fillText(`₹ ${formatCurrency(totalAmount)}`, 1165, 1246);
+
+    // 7. TERMS & CONDITIONS AND SIGNATURE (Y: 1260 to 1610)
+    ctx.beginPath();
+    ctx.moveTo(metaSplitX, 1260);
+    ctx.lineTo(metaSplitX, 1610);
+    ctx.stroke();
+
+    // Left terms
+    ctx.textAlign = 'left';
+
+    const termRows = [
+      { label: 'Warranty -', val: data.warranty || '12 Months against manufacturing defects', y: 1295 },
+      { label: 'Packing forwarding : -', val: data.packingForwarding || 'Included in above rates', y: 1335 },
+      { label: 'Freight :-', val: data.freight || 'Extra at actual / To Pay', y: 1375 },
+      { label: 'Payment:-', val: data.paymentTerms || '100% against delivery', y: 1415 },
+    ];
+
+    termRows.forEach((tr) => {
+      ctx.fillStyle = '#475569';
+      ctx.font = 'bold 18px "Segoe UI", Inter, Arial, sans-serif';
+      ctx.fillText(tr.label, leftX + 20, tr.y);
+
+      ctx.fillStyle = '#0F172A';
+      drawAutoScaledCanvasText(ctx, tr.val, leftX + 215, tr.y, 440, 18, 12, 'normal');
+
+      ctx.beginPath();
+      ctx.moveTo(leftX, tr.y + 10);
+      ctx.lineTo(metaSplitX, tr.y + 10);
+      ctx.strokeStyle = '#CBD5E1';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+
     ctx.fillStyle = '#64748B';
     ctx.font = '16px "Segoe UI", Inter, Arial, sans-serif';
     ctx.fillText('We hope our offer is in line with your exact requirement.', leftX + 20, 1485);
     ctx.fillText('Kindly feel free to ask us any details.', leftX + 20, 1515);
-  }
 
-  // Right terms & Sign
-  ctx.strokeStyle = '#CBD5E1';
-  ctx.lineWidth = 1;
+    // Right terms & Sign
+    ctx.strokeStyle = '#CBD5E1';
+    ctx.lineWidth = 1;
 
-  const rightRows = [
-    { label: 'Validity –', val: data.validity || '30 Days', y: 1295 },
-    { label: 'Sales Tax :- GST @', val: `${data.gstRate}% Extra`, y: 1335 },
-    { label: 'Delivery Period :-', val: data.deliveryPeriod || '1 to 2 Weeks', y: 1375 },
-  ];
+    const rightRows = [
+      { label: 'Validity –', val: data.validity || '30 Days', y: 1295 },
+      { label: 'Sales Tax :- GST @', val: `${data.gstRate}% Extra`, y: 1335 },
+      { label: 'Delivery Period :-', val: data.deliveryPeriod || '1 to 2 Weeks', y: 1375 },
+    ];
 
-  rightRows.forEach((rr) => {
-    ctx.fillStyle = '#475569';
-    ctx.font = 'bold 18px "Segoe UI", Inter, Arial, sans-serif';
-    ctx.fillText(rr.label, metaSplitX + 20, rr.y);
+    rightRows.forEach((rr) => {
+      ctx.fillStyle = '#475569';
+      ctx.font = 'bold 18px "Segoe UI", Inter, Arial, sans-serif';
+      ctx.fillText(rr.label, metaSplitX + 20, rr.y);
 
-    ctx.fillStyle = '#0F172A';
-    drawAutoScaledCanvasText(ctx, rr.val, metaSplitX + 200, rr.y, 250, 18, 12, 'bold');
+      ctx.fillStyle = '#0F172A';
+      drawAutoScaledCanvasText(ctx, rr.val, metaSplitX + 200, rr.y, 250, 18, 12, 'bold');
 
+      ctx.beginPath();
+      ctx.moveTo(metaSplitX, rr.y + 10);
+      ctx.lineTo(rightX, rr.y + 10);
+      ctx.stroke();
+    });
+
+    // Signatory
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#1E293B';
+    ctx.font = 'bold 19px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText('Thanking you,', 945, 1435);
+
+    ctx.fillStyle = '#0F2C59';
+    ctx.font = 'bold 21px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(`For ${company.name || 'APEX INDUSTRIES'}`, 945, 1465);
+
+    // Stamp circle & signature
+    ctx.save();
+    ctx.strokeStyle = '#4338CA';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(metaSplitX, rr.y + 10);
-    ctx.lineTo(rightX, rr.y + 10);
+    ctx.arc(945, 1515, 30, 0, Math.PI * 2);
     ctx.stroke();
-  });
+    ctx.fillStyle = '#4338CA';
+    ctx.font = 'bold 8px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText('APEX INDUSTRIES', 945, 1512);
+    ctx.fillText('SANGLI', 945, 1528);
+    ctx.restore();
 
-  // Signatory
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#1E293B';
-  ctx.font = 'bold 19px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText('Thanking you,', 945, 1435);
-
-  ctx.fillStyle = '#0F2C59';
-  ctx.font = 'bold 21px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText(`For ${company.name || 'APEX INDUSTRIES'}`, 945, 1465);
-
-  // Stamp circle & signature
-  ctx.save();
-  ctx.strokeStyle = '#4338CA';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(945, 1515, 30, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fillStyle = '#4338CA';
-  ctx.font = 'bold 8px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText('APEX INDUSTRIES', 945, 1512);
-  ctx.fillText('SANGLI', 945, 1528);
-  ctx.restore();
-
-  ctx.fillStyle = '#0F2C59';
-  ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText(company.signatoryName || 'Mr. Dilip Mulay', 945, 1585);
+    ctx.fillStyle = '#0F2C59';
+    ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
+    ctx.fillText(company.signatoryName || 'Mr. Dilip Mulay', 945, 1585);
+  }
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -531,6 +740,11 @@ export async function generateProformaInvoiceImageBlob(
       gstRate: pi.gstRate,
       subtotal: pi.subtotal,
       grandTotal: pi.grandTotal,
+      packagingFreightAmount: pi.packagingFreightAmount,
+      discountPercent: pi.discountPercent,
+      discountAmount: pi.discountAmount,
+      balanceSubTotal: pi.balanceSubTotal,
+      gstAmount: pi.gstAmount,
     },
     company,
     format
