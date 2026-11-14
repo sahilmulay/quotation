@@ -6,7 +6,8 @@ import {
   Save, 
   Download, 
   Upload, 
-  Check 
+  Check,
+  Landmark
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -222,6 +223,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
 
+        {/* PO Numbering */}
+        <div className="border-t border-slate-100 pt-3">
+          <h4 className="font-bold text-slate-700 text-xs mb-2">Purchase Order Auto-Numbering</h4>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">Prefix</label>
+              <input type="text" value={formData.poPrefix || 'PO-'} onChange={(e) => setFormData({ ...formData, poPrefix: e.target.value })}
+                placeholder="PO-" className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 outline-none" />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">Next Number</label>
+              <input type="number" value={formData.nextPoNumber || 101} onChange={(e) => setFormData({ ...formData, nextPoNumber: parseInt(e.target.value) || 101 })}
+                className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 outline-none" />
+            </div>
+          </div>
+        </div>
+
+        {/* PI Numbering */}
+        <div className="border-t border-slate-100 pt-3">
+          <h4 className="font-bold text-slate-700 text-xs mb-2">Proforma Invoice Auto-Numbering</h4>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">Prefix</label>
+              <input type="text" value={formData.piPrefix || 'PI-'} onChange={(e) => setFormData({ ...formData, piPrefix: e.target.value })}
+                placeholder="PI-" className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 outline-none" />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">Next Number</label>
+              <input type="number" value={formData.nextPiNumber || 101} onChange={(e) => setFormData({ ...formData, nextPiNumber: parseInt(e.target.value) || 101 })}
+                className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 outline-none" />
+            </div>
+          </div>
+        </div>
+
         {/* Seal Stamp Toggle */}
         <div className="border-t border-slate-100 pt-3">
           <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-slate-700 select-none">
@@ -246,6 +281,49 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </button>
         </div>
       </form>
+
+      {/* Bank Details Section (for Proforma Invoice) */}
+      <div className="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 space-y-3.5">
+        <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
+          <Landmark className="w-4 h-4 text-purple-600" />
+          Bank Details <span className="text-[10px] font-normal text-purple-600 normal-case ml-1">(Used in Proforma Invoice PDF)</span>
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Bank Name</label>
+            <input type="text" value={formData.bankName || ''} onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+              placeholder="e.g. State Bank of India"
+              className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50 outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Account Number</label>
+            <input type="text" value={formData.accountNo || ''} onChange={(e) => setFormData({ ...formData, accountNo: e.target.value })}
+              placeholder="e.g. 1234567890123"
+              className="w-full text-xs font-mono font-bold px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50 outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">IFSC Code</label>
+            <input type="text" value={formData.ifscCode || ''} onChange={(e) => setFormData({ ...formData, ifscCode: e.target.value.toUpperCase() })}
+              placeholder="e.g. SBIN0001234"
+              className="w-full text-xs font-mono font-bold px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50 outline-none uppercase" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Branch Name</label>
+            <input type="text" value={formData.branchName || ''} onChange={(e) => setFormData({ ...formData, branchName: e.target.value })}
+              placeholder="e.g. Sangli Main Branch"
+              className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50 outline-none" />
+          </div>
+        </div>
+        <button type="button" onClick={async () => {
+            await saveCompanyDetails(formData);
+            onCompanyUpdated(formData);
+            setIsSaved(true);
+            setTimeout(() => setIsSaved(false), 2000);
+          }}
+          className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 active:scale-95 transition">
+          <Save className="w-4 h-4" /><span>Save Bank Details</span>
+        </button>
+      </div>
 
       {/* Backup & Restore Section */}
       <div className="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 space-y-3">

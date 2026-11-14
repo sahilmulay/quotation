@@ -55,6 +55,65 @@ export interface CompanyDetails {
   logoImage?: string;
   nextQuoteNumber: number;
   quotePrefix: string;
+  // Bank Details (for Proforma Invoice)
+  bankName?: string;
+  accountNo?: string;
+  ifscCode?: string;
+  branchName?: string;
+  nextPoNumber: number;
+  poPrefix: string;
+  nextPiNumber: number;
+  piPrefix: string;
+}
+
+// Purchase Order
+export interface PurchaseOrder {
+  id?: number;
+  poNo: string;
+  poDate: string;
+  refNo: string;
+  refDate: string;
+  customerName: string;
+  customerAddress: string;
+  items: QuotationItem[];
+  warranty: string;
+  packingForwarding: string;
+  freight: string;
+  paymentTerms: string;
+  validity: string;
+  deliveryPeriod: string;
+  gstRate: number;
+  subtotal: number;
+  gstAmount: number;
+  grandTotal: number;
+  status: 'Draft' | 'Sent' | 'Approved' | 'Rejected';
+  createdAt: number;
+  updatedAt: number;
+}
+
+// Proforma Invoice
+export interface ProformaInvoice {
+  id?: number;
+  piNo: string;
+  piDate: string;
+  refNo: string;
+  refDate: string;
+  customerName: string;
+  customerAddress: string;
+  items: QuotationItem[];
+  warranty: string;
+  packingForwarding: string;
+  freight: string;
+  paymentTerms: string;
+  validity: string;
+  deliveryPeriod: string;
+  gstRate: number;
+  subtotal: number;
+  gstAmount: number;
+  grandTotal: number;
+  status: 'Draft' | 'Sent' | 'Approved' | 'Rejected';
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface FieldPosition {

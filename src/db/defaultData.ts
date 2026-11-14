@@ -11,6 +11,14 @@ export const DEFAULT_COMPANY_DETAILS: CompanyDetails = {
   showStamp: true,
   nextQuoteNumber: 101,
   quotePrefix: 'Q-',
+  nextPoNumber: 101,
+  poPrefix: 'PO-',
+  nextPiNumber: 101,
+  piPrefix: 'PI-',
+  bankName: '',
+  accountNo: '',
+  ifscCode: '',
+  branchName: '',
 };
 
 export const DEFAULT_TEMPLATE_CONFIG: TemplateConfig = {

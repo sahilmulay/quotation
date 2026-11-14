@@ -6,47 +6,65 @@ import {
   getCompanyDetails, 
   getActiveTemplateConfig 
 } from './db/db';
-import { CompanyDetails, Customer, Quotation, TemplateConfig } from './types';
+import { CompanyDetails, Quotation, PurchaseOrder, ProformaInvoice, TemplateConfig } from './types';
 import { DEFAULT_COMPANY_DETAILS, DEFAULT_TEMPLATE_CONFIG, SAMPLE_QUOTATIONS } from './db/defaultData';
 import { Header } from './components/Navigation/Header';
 import { BottomNav, NavTab } from './components/Navigation/BottomNav';
+
+// Quotation
 import { QuotationWizard } from './components/QuotationWizard/QuotationWizard';
 import { QuotationList } from './components/QuotationList/QuotationList';
-import { CustomerManager } from './components/CustomerManager/CustomerManager';
+
+// Purchase Order
+import { PurchaseOrderWizard } from './components/PurchaseOrderWizard/PurchaseOrderWizard';
+import { PurchaseOrderList } from './components/PurchaseOrderList/PurchaseOrderList';
+
+// Proforma Invoice
+import { ProformaWizard } from './components/ProformaWizard/ProformaWizard';
+import { ProformaList } from './components/ProformaList/ProformaList';
+
+// Settings
+import { SettingsView } from './components/Settings/SettingsView';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<NavTab>('create');
-  const [activeQuotationToEdit, setActiveQuotationToEdit] = useState<Quotation | null>(null);
+  const [activeTab, setActiveTab] = useState<NavTab>('quotation');
+
+  // Sub-views within each tab: 'wizard' | 'list'
+  const [quotationView, setQuotationView] = useState<'list' | 'wizard'>('list');
+  const [purchaseView, setPurchaseView] = useState<'list' | 'wizard'>('list');
+  const [proformaView, setProformaView] = useState<'list' | 'wizard'>('list');
+
+  // Active items being edited
+  const [activeQuotation, setActiveQuotation] = useState<Quotation | null>(null);
+  const [activePo, setActivePo] = useState<PurchaseOrder | null>(null);
+  const [activePi, setActivePi] = useState<ProformaInvoice | null>(null);
+
   const [companyDetails, setCompanyDetails] = useState<CompanyDetails>(DEFAULT_COMPANY_DETAILS);
   const [templateConfig, setTemplateConfig] = useState<TemplateConfig>(DEFAULT_TEMPLATE_CONFIG);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
-  // Reactive queries via Dexie with fallback
+  // Reactive live queries
   const quotations = useLiveQuery(async () => {
-    try {
-      return await db.quotations.orderBy('createdAt').reverse().toArray();
-    } catch {
-      try {
-        return await db.quotations.toArray();
-      } catch {
-        return SAMPLE_QUOTATIONS;
-      }
-    }
+    try { return await db.quotations.orderBy('createdAt').reverse().toArray(); }
+    catch { try { return await db.quotations.toArray(); } catch { return SAMPLE_QUOTATIONS; } }
+  }, []) || [];
+
+  const purchaseOrders = useLiveQuery(async () => {
+    try { return await db.purchaseOrders.orderBy('createdAt').reverse().toArray(); }
+    catch { try { return await db.purchaseOrders.toArray(); } catch { return []; } }
+  }, []) || [];
+
+  const proformaInvoices = useLiveQuery(async () => {
+    try { return await db.proformaInvoices.orderBy('createdAt').reverse().toArray(); }
+    catch { try { return await db.proformaInvoices.toArray(); } catch { return []; } }
   }, []) || [];
 
   const customers = useLiveQuery(async () => {
-    try {
-      return await db.customers.orderBy('name').toArray();
-    } catch {
-      try {
-        return await db.customers.toArray();
-      } catch {
-        return [];
-      }
-    }
+    try { return await db.customers.orderBy('name').toArray(); }
+    catch { try { return await db.customers.toArray(); } catch { return []; } }
   }, []) || [];
 
-  // Database initialization & load settings
+  // Init DB
   useEffect(() => {
     async function loadData() {
       try {
@@ -66,40 +84,8 @@ export function App() {
     loadData();
   }, []);
 
-  const handleEditQuotation = (quote: Quotation) => {
-    setActiveQuotationToEdit(quote);
-    setActiveTab('create');
-  };
-
-  const handleSelectCustomerForQuote = (cust: Customer) => {
-    setActiveQuotationToEdit({
-      quotationNo: '',
-      quotationDate: new Date().toISOString().split('T')[0],
-      refNo: '',
-      refDate: '',
-      customerName: cust.name,
-      customerAddress: cust.address,
-      items: [{ id: 'item-1', srNo: 1, description: '', quantity: 1, unitRate: 0, amount: 0 }],
-      warranty: '12 Months against manufacturing defects',
-      packingForwarding: 'Included in above rates',
-      freight: 'Extra / To Pay',
-      paymentTerms: '100% against delivery',
-      validity: '30 Days',
-      deliveryPeriod: '1 to 2 Weeks',
-      gstRate: 18,
-      subtotal: 0,
-      gstAmount: 0,
-      grandTotal: 0,
-      status: 'Draft',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-    setActiveTab('create');
-  };
-
-  const handleFinishWizard = () => {
-    setActiveQuotationToEdit(null);
-    setActiveTab('list');
+  const handleTabChange = (tab: NavTab) => {
+    setActiveTab(tab);
   };
 
   if (!isInitialized) {
@@ -107,7 +93,7 @@ export function App() {
       <div className="min-h-screen flex items-center justify-center bg-[#0F2C59] text-white">
         <div className="text-center space-y-3">
           <div className="w-10 h-10 border-4 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm font-bold text-sky-200">Starting Apex Quotation App...</p>
+          <p className="text-sm font-bold text-sky-200">Starting Apex Industries App...</p>
         </div>
       </div>
     );
@@ -115,55 +101,133 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
-      {/* Top Mobile Header */}
       <Header />
 
-      {/* Main Content Area */}
       <main className="flex-1 max-w-xl w-full mx-auto px-3 sm:px-4 py-2">
-        {activeTab === 'create' && (
+
+        {/* ========== QUOTATION TAB ========== */}
+        {activeTab === 'quotation' && quotationView === 'list' && (
+          <div>
+            {/* New Quote button at top */}
+            <div className="mb-3 pt-2">
+              <button
+                onClick={() => { setActiveQuotation(null); setQuotationView('wizard'); }}
+                className="w-full py-3 bg-[#0F2C59] hover:bg-[#1E3A8A] text-white font-bold text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 active:scale-[0.98] transition"
+              >
+                <span>＋ New Quotation</span>
+              </button>
+            </div>
+            <QuotationList
+              quotations={quotations}
+              company={companyDetails}
+              template={templateConfig}
+              onEditQuotation={(q) => { setActiveQuotation(q); setQuotationView('wizard'); }}
+              onCreateNew={() => { setActiveQuotation(null); setQuotationView('wizard'); }}
+            />
+          </div>
+        )}
+
+        {activeTab === 'quotation' && quotationView === 'wizard' && (
           <QuotationWizard
-            key={activeQuotationToEdit ? activeQuotationToEdit.id || 'edit' : 'new'}
-            initialQuotation={activeQuotationToEdit}
+            key={activeQuotation ? activeQuotation.id || 'edit-q' : 'new-q'}
+            initialQuotation={activeQuotation}
             company={companyDetails}
             template={templateConfig}
             savedCustomers={customers}
-            onFinish={handleFinishWizard}
+            onFinish={() => { setActiveQuotation(null); setQuotationView('list'); }}
           />
         )}
 
-        {activeTab === 'list' && (
-          <QuotationList
-            quotations={quotations}
+        {/* ========== PURCHASE ORDER TAB ========== */}
+        {activeTab === 'purchase' && purchaseView === 'list' && (
+          <div>
+            <div className="mb-3 pt-2">
+              <button
+                onClick={() => { setActivePo(null); setPurchaseView('wizard'); }}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 active:scale-[0.98] transition"
+              >
+                <span>＋ New Purchase Order</span>
+              </button>
+            </div>
+            <PurchaseOrderList
+              purchaseOrders={purchaseOrders}
+              company={companyDetails}
+              onEditPo={(po) => { setActivePo(po); setPurchaseView('wizard'); }}
+              onCreateNew={() => { setActivePo(null); setPurchaseView('wizard'); }}
+            />
+          </div>
+        )}
+
+        {activeTab === 'purchase' && purchaseView === 'wizard' && (
+          <PurchaseOrderWizard
+            key={activePo ? activePo.id || 'edit-po' : 'new-po'}
+            initialPo={activePo}
             company={companyDetails}
-            template={templateConfig}
-            onEditQuotation={handleEditQuotation}
-            onCreateNew={() => {
-              setActiveQuotationToEdit(null);
-              setActiveTab('create');
-            }}
+            savedCustomers={customers}
+            onFinish={() => { setActivePo(null); setPurchaseView('list'); }}
           />
         )}
 
-        {activeTab === 'customers' && (
-          <CustomerManager
-            customers={customers}
-            onSelectForQuote={handleSelectCustomerForQuote}
+        {/* ========== PROFORMA INVOICE TAB ========== */}
+        {activeTab === 'proforma' && proformaView === 'list' && (
+          <div>
+            <div className="mb-3 pt-2">
+              <button
+                onClick={() => { setActivePi(null); setProformaView('wizard'); }}
+                className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 active:scale-[0.98] transition"
+              >
+                <span>＋ New Proforma Invoice</span>
+              </button>
+            </div>
+            <ProformaList
+              proformaInvoices={proformaInvoices}
+              company={companyDetails}
+              onEditPi={(pi) => { setActivePi(pi); setProformaView('wizard'); }}
+              onCreateNew={() => { setActivePi(null); setProformaView('wizard'); }}
+            />
+          </div>
+        )}
+
+        {activeTab === 'proforma' && proformaView === 'wizard' && (
+          <ProformaWizard
+            key={activePi ? activePi.id || 'edit-pi' : 'new-pi'}
+            initialPi={activePi}
+            company={companyDetails}
+            savedCustomers={customers}
+            onFinish={() => { setActivePi(null); setProformaView('list'); }}
+          />
+        )}
+
+        {/* ========== SETTINGS TAB ========== */}
+        {activeTab === 'settings' && (
+          <SettingsView
+            company={companyDetails}
+            onCompanyUpdated={(details) => setCompanyDetails(details)}
+            onDataRestored={async () => {
+              const comp = await getCompanyDetails();
+              const tmpl = await getActiveTemplateConfig();
+              setCompanyDetails(comp);
+              setTemplateConfig(tmpl);
+            }}
           />
         )}
       </main>
 
-      {/* Fixed Bottom Navigation Bar */}
       <BottomNav
         activeTab={activeTab}
         onTabChange={(tab) => {
-          if (tab === 'create' && activeTab !== 'create') {
-            setActiveQuotationToEdit(null);
-          }
-          setActiveTab(tab);
+          // Reset to list view when switching tabs
+          if (tab === 'quotation') setQuotationView('list');
+          if (tab === 'purchase') setPurchaseView('list');
+          if (tab === 'proforma') setProformaView('list');
+          handleTabChange(tab);
         }}
         quotationCount={quotations.length}
+        poCount={purchaseOrders.length}
+        piCount={proformaInvoices.length}
       />
     </div>
   );
 }
+
 export default App;

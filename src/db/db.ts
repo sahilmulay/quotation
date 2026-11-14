@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie';
-import { AppBackup, Customer, CompanyDetails, Quotation, TemplateConfig } from '../types';
+import { AppBackup, Customer, CompanyDetails, Quotation, PurchaseOrder, ProformaInvoice, TemplateConfig } from '../types';
 import { 
   DEFAULT_COMPANY_DETAILS, 
   DEFAULT_TEMPLATE_CONFIG, 
@@ -10,6 +10,8 @@ import {
 export class ApexDatabase extends Dexie {
   customers!: Table<Customer, number>;
   quotations!: Table<Quotation, number>;
+  purchaseOrders!: Table<PurchaseOrder, number>;
+  proformaInvoices!: Table<ProformaInvoice, number>;
   companyDetails!: Table<CompanyDetails & { id: string }, string>;
   templateConfigs!: Table<TemplateConfig, number>;
 
@@ -18,6 +20,14 @@ export class ApexDatabase extends Dexie {
     this.version(1).stores({
       customers: '++id, name, phone, email, createdAt',
       quotations: '++id, quotationNo, customerName, quotationDate, status, createdAt',
+      companyDetails: 'id',
+      templateConfigs: '++id, name, isDefault',
+    });
+    this.version(2).stores({
+      customers: '++id, name, phone, email, createdAt',
+      quotations: '++id, quotationNo, customerName, quotationDate, status, createdAt',
+      purchaseOrders: '++id, poNo, customerName, poDate, status, createdAt',
+      proformaInvoices: '++id, piNo, customerName, piDate, status, createdAt',
       companyDetails: 'id',
       templateConfigs: '++id, name, isDefault',
     });
@@ -118,6 +128,70 @@ export async function incrementQuotationCounter(): Promise<void> {
     await saveCompanyDetails(company);
   } catch (err) {
     console.error('Error incrementing counter:', err);
+  }
+}
+
+// Next PO Number
+export async function getNextSuggestedPoNo(): Promise<string> {
+  try {
+    const company = await getCompanyDetails();
+    const prefix = company.poPrefix || 'PO-';
+    const allPos = await db.purchaseOrders.toArray();
+    let maxNum = company.nextPoNumber ? company.nextPoNumber - 1 : 100;
+    allPos.forEach((p) => {
+      if (p.poNo) {
+        const match = p.poNo.match(/\d+/g);
+        if (match) {
+          const lastDigits = parseInt(match[match.length - 1], 10);
+          if (lastDigits > maxNum && lastDigits < 1000000) maxNum = lastDigits;
+        }
+      }
+    });
+    return `${prefix}${maxNum + 1}`;
+  } catch {
+    return 'PO-101';
+  }
+}
+
+export async function incrementPoCounter(): Promise<void> {
+  try {
+    const company = await getCompanyDetails();
+    company.nextPoNumber = (company.nextPoNumber || 100) + 1;
+    await saveCompanyDetails(company);
+  } catch (err) {
+    console.error('Error incrementing PO counter:', err);
+  }
+}
+
+// Next PI Number
+export async function getNextSuggestedPiNo(): Promise<string> {
+  try {
+    const company = await getCompanyDetails();
+    const prefix = company.piPrefix || 'PI-';
+    const allPis = await db.proformaInvoices.toArray();
+    let maxNum = company.nextPiNumber ? company.nextPiNumber - 1 : 100;
+    allPis.forEach((p) => {
+      if (p.piNo) {
+        const match = p.piNo.match(/\d+/g);
+        if (match) {
+          const lastDigits = parseInt(match[match.length - 1], 10);
+          if (lastDigits > maxNum && lastDigits < 1000000) maxNum = lastDigits;
+        }
+      }
+    });
+    return `${prefix}${maxNum + 1}`;
+  } catch {
+    return 'PI-101';
+  }
+}
+
+export async function incrementPiCounter(): Promise<void> {
+  try {
+    const company = await getCompanyDetails();
+    company.nextPiNumber = (company.nextPiNumber || 100) + 1;
+    await saveCompanyDetails(company);
+  } catch (err) {
+    console.error('Error incrementing PI counter:', err);
   }
 }
 
