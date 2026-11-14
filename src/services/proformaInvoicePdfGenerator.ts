@@ -131,18 +131,18 @@ export function generateProformaInvoicePDF(
 
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 44, 89);
-  drawAutoScaledText(doc, pi.piNo || '', 134, 70, 30.5, 9.5, 6);
+  drawAutoScaledText(doc, pi.piNo || '', 136, 70, 28.5, 9.5, 6);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
   doc.setTextColor(51, 65, 85);
-  doc.text(formatDate(pi.piDate), 179, 70);
+  doc.text(formatDate(pi.piDate), 180, 70);
 
   drawAutoScaledText(doc, pi.refNo || '-', 136, 83, 28.5, 9, 6);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.text(formatDate(pi.refDate) || '-', 179, 83);
+  doc.text(formatDate(pi.refDate) || '-', 180, 83);
 
   // ==========================================
   // 5. SALUTATION SECTION (Y: 89 to 100)
@@ -243,26 +243,19 @@ export function generateProformaInvoicePDF(
     ? Number(pi.grandTotal)
     : balanceSubTotal + gstAmountVal;
 
-  // Vertical column dividers for the breakdown table:
-  // Left label: 10 to 65
-  // Middle detail: 65 to 168
-  // Amount column: 168 to 200
-  const breakdownDividerX = 65;
   const amountColX = 168;
 
-  // Vertical lines for breakdown section (Y: 180 to 222)
+  // Single continuous vertical line for Amount column (Y: 180 to 223)
   doc.setDrawColor(30, 41, 59);
   doc.setLineWidth(0.4);
-  doc.line(amountColX, 180, amountColX, 222);
-  doc.line(breakdownDividerX, 187, breakdownDividerX, 201); // only for middle detail rows 2 & 3
-  doc.line(breakdownDividerX, 208, breakdownDividerX, 215); // only for row 5 (GST)
+  doc.line(amountColX, 180, amountColX, 223);
 
   // --- Row 1: TOTAL - (Basic items sum) --- Y: 180 to 187
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(9.5);
   doc.setTextColor(15, 44, 89);
-  doc.text('TOTAL -', 14, 185);
-  drawAutoScaledText(doc, formatCurrency(itemsSubtotal), 198, 185, 30, 9.5, 7, { align: 'right' });
+  doc.text('TOTAL -', 165, 185, { align: 'right' });
+  drawAutoScaledText(doc, formatCurrency(itemsSubtotal), 198, 185, 28, 9.5, 7, { align: 'right' });
   doc.line(leftX, 187, rightX, 187);
 
   // --- Row 2: Add : Other Taxes & Levies --- Y: 187 to 194
@@ -272,10 +265,10 @@ export function generateProformaInvoicePDF(
   doc.text('Add : Other Taxes & Levies', 14, 192);
 
   doc.setFont('helvetica', 'italic');
-  doc.text('Packing, Forwarding, Freight', breakdownDividerX + 3, 192);
+  doc.text('Packing, Forwarding, Freight', 70, 192);
 
   doc.setFont('helvetica', 'normal');
-  drawAutoScaledText(doc, pkgFreight > 0 ? formatCurrency(pkgFreight) : '0.00', 198, 192, 30, 9, 7, { align: 'right' });
+  drawAutoScaledText(doc, pkgFreight > 0 ? formatCurrency(pkgFreight) : '0.00', 198, 192, 28, 9, 7, { align: 'right' });
   doc.line(leftX, 194, rightX, 194);
 
   // --- Row 3: Less : Deductions/Discount Etc. --- Y: 194 to 201
@@ -283,19 +276,19 @@ export function generateProformaInvoicePDF(
   doc.text('Less : Deductions/Discount Etc.', 14, 199);
 
   doc.setFont('helvetica', 'italic');
-  doc.text(`${discPercent}%`, breakdownDividerX + 3, 199);
+  doc.text(`${discPercent}%`, 70, 199);
 
   doc.setFont('helvetica', 'normal');
   const discText = discAmount > 0 ? `- ${formatCurrency(discAmount)}` : '0.00';
-  drawAutoScaledText(doc, discText, 198, 199, 30, 9, 7, { align: 'right' });
+  drawAutoScaledText(doc, discText, 198, 199, 28, 9, 7, { align: 'right' });
   doc.line(leftX, 201, rightX, 201);
 
   // --- Row 4: Balance Sub. Total --- Y: 201 to 208
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(9.5);
   doc.setTextColor(15, 44, 89);
   doc.text('Balance Sub. Total', 14, 206);
-  drawAutoScaledText(doc, formatCurrency(balanceSubTotal), 198, 206, 30, 9.5, 7, { align: 'right' });
+  drawAutoScaledText(doc, formatCurrency(balanceSubTotal), 198, 206, 28, 9.5, 7, { align: 'right' });
   doc.line(leftX, 208, rightX, 208);
 
   // --- Row 5: Add : GST --- Y: 208 to 215
@@ -305,10 +298,10 @@ export function generateProformaInvoicePDF(
   doc.text('Add : GST', 14, 213);
 
   doc.setFont('helvetica', 'italic');
-  doc.text(`GST @ ${gstRateVal}%`, breakdownDividerX + 3, 213);
+  doc.text(`GST @ ${gstRateVal}%`, 70, 213);
 
   doc.setFont('helvetica', 'normal');
-  drawAutoScaledText(doc, formatCurrency(gstAmountVal), 198, 213, 30, 9, 7, { align: 'right' });
+  drawAutoScaledText(doc, formatCurrency(gstAmountVal), 198, 213, 28, 9, 7, { align: 'right' });
   doc.line(leftX, 215, rightX, 215);
 
   // --- Row 6: GRAND TOTAL : --- Y: 215 to 223
@@ -316,22 +309,22 @@ export function generateProformaInvoicePDF(
   doc.setFontSize(10.5);
   doc.setTextColor(15, 44, 89);
   doc.text('GRAND TOTAL :', 14, 221);
-  drawAutoScaledText(doc, `\u20B9 ${formatCurrency(finalGrandTotal)}`, 198, 221, 30, 11, 8, { align: 'right' });
+  drawAutoScaledText(doc, formatCurrency(finalGrandTotal), 198, 221, 28, 10.5, 8, { align: 'right' });
   doc.line(leftX, 223, rightX, 223);
 
   // ==========================================
-  // 8. RS IN WORDS (Y: 223 to 230)
+  // 8. RS IN WORDS (Y: 223 to 231)
   // ==========================================
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
+  doc.setFontSize(9);
   doc.setTextColor(15, 44, 89);
-  doc.text('Rs in words -', 14, 228);
+  doc.text('Rs in words -', 14, 228.5);
 
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
   const wordsText = numberToWordsIndian(finalGrandTotal);
-  drawAutoScaledText(doc, wordsText, 37, 228, 160, 8.5, 6.5);
+  drawAutoScaledText(doc, wordsText, 38, 228.5, 158, 8.5, 6.5);
   doc.line(leftX, 231, rightX, 231);
 
   // ==========================================
@@ -342,9 +335,9 @@ export function generateProformaInvoicePDF(
 
   // --- Left Side: Company's Bank Details ---
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(9.5);
   doc.setTextColor(15, 44, 89);
-  doc.text("Company's Bank Details", 14, 237);
+  doc.text("Company's Bank Details", 14, 237.5);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
@@ -354,43 +347,43 @@ export function generateProformaInvoicePDF(
   const acNo = company.accountNo || '636305000164';
   const branchIfsc = `${company.branchName || 'Kavalapur'} & ${company.ifscCode || 'ICIC0006363'}`;
 
-  doc.text('Bank Name', 14, 244);
-  doc.text(`–   ${bankName}`, 42, 244);
+  doc.text('Bank Name', 14, 244.5);
+  doc.text(`–   ${bankName}`, 45, 244.5);
 
-  doc.text('Current A/c No.', 14, 251);
+  doc.text('Current A/c No.', 14, 251.5);
   doc.setFont('helvetica', 'bold');
-  doc.text(`–   ${acNo}`, 42, 251);
+  doc.text(`–   ${acNo}`, 45, 251.5);
 
   doc.setFont('helvetica', 'normal');
-  doc.text('Branch & IFS Code', 14, 258);
-  doc.text(`–   ${branchIfsc}`, 42, 258);
+  doc.text('Branch & IFS Code', 14, 258.5);
+  doc.text(`–   ${branchIfsc}`, 45, 258.5);
 
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('* Subject to Sangli Jurisdiction', 14, 267);
+  doc.text('* Subject to Sangli Jurisdiction', 14, 267.5);
 
   // --- Right Side: Signature Block ---
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(51, 65, 85);
-  doc.text('Thanking you,', 160, 238, { align: 'center' });
+  doc.text('Thanking you,', 160, 237.5, { align: 'center' });
 
   doc.setFontSize(9.5);
   doc.setTextColor(15, 44, 89);
-  doc.text(`For ${company.name || 'APEX INDUSTRIES'}`, 160, 243.5, { align: 'center' });
+  doc.text(`For ${company.name || 'APEX INDUSTRIES'}`, 160, 242.5, { align: 'center' });
 
-  // Stamp Seal
+  // Stamp Seal with clean vertical spacing (no text collision)
   if (company.showStamp) {
-    drawStampSeal(doc, 160, 254);
+    drawStampSeal(doc, 160, 253);
   }
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(15, 44, 89);
-  doc.text('Authorised Signatory', 160, 265, { align: 'center' });
+  doc.text('Authorised Signatory', 160, 264.5, { align: 'center' });
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text(company.signatoryName || 'Mr. Dilip Mulay', 160, 269.5, { align: 'center' });
+  doc.text(company.signatoryName || 'Mr. Dilip Mulay', 160, 269, { align: 'center' });
 
   return doc;
 }

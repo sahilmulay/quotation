@@ -339,9 +339,8 @@ async function renderDocToCanvasBlob(
     // Row 1: TOTAL - (Basic items sum) -> Y: 1060 to 1105
     ctx.fillStyle = '#0F2C59';
     ctx.font = 'bold 21px "Segoe UI", Inter, Arial, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('TOTAL -', leftX + 24, 1092);
     ctx.textAlign = 'right';
+    ctx.fillText('TOTAL -', 970, 1092);
     ctx.fillText(formatCurrency(itemsSubtotal), 1165, 1092);
 
     ctx.beginPath();
@@ -414,7 +413,7 @@ async function renderDocToCanvasBlob(
     ctx.textAlign = 'left';
     ctx.fillText('GRAND TOTAL :', leftX + 24, 1318);
     ctx.textAlign = 'right';
-    ctx.fillText(`₹ ${formatCurrency(finalGrandTotal)}`, 1165, 1318);
+    ctx.fillText(formatCurrency(finalGrandTotal), 1165, 1318);
 
     ctx.beginPath();
     ctx.moveTo(leftX, 1330);
