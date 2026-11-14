@@ -34,7 +34,7 @@ export const Step4Terms: React.FC<Step4TermsProps> = ({
   onUpdate,
 }) => {
   const gstAmount = Math.round((subtotal * (gstRate || 0)) / 100);
-  const grandTotal = subtotal + gstAmount;
+  const grandTotal = subtotal; // Total without GST, since GST is extra as per quotation terms
 
   const handleField = (key: string, val: any) => {
     onUpdate({
@@ -58,22 +58,22 @@ export const Step4Terms: React.FC<Step4TermsProps> = ({
         </div>
         <div>
           <h3 className="font-bold text-slate-800 text-sm">Terms & Tax Summary</h3>
-          <p className="text-xs text-slate-500">Commercial conditions and automated tax calculation</p>
+          <p className="text-xs text-slate-500">Commercial conditions and tax settings (GST is Extra)</p>
         </div>
       </div>
 
       {/* Live Financial Summary Card */}
       <div className="bg-gradient-to-br from-[#0F2C59] to-[#1E3A8A] text-white rounded-2xl p-4 shadow-md space-y-3">
         <div className="flex items-center justify-between border-b border-sky-400/20 pb-2.5">
-          <span className="text-xs font-medium text-sky-200">Subtotal ({subtotal > 0 ? 'Taxable Value' : '0 Items'})</span>
+          <span className="text-xs font-medium text-sky-200">Total Products Amount (Basic)</span>
           <span className="text-sm font-bold tracking-tight">₹{formatCurrency(subtotal)}</span>
         </div>
 
         <div className="flex items-center justify-between border-b border-sky-400/20 pb-2.5">
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-medium text-sky-200">GST ({gstRate}%)</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-400/20 text-sky-200 border border-sky-400/30">
-              CGST + SGST
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-200 border border-amber-400/30 font-semibold">
+              Extra as Applicable
             </span>
           </div>
           <span className="text-sm font-bold text-sky-200">₹{formatCurrency(gstAmount)}</span>
@@ -81,14 +81,17 @@ export const Step4Terms: React.FC<Step4TermsProps> = ({
 
         <div className="flex items-baseline justify-between pt-1">
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-sky-300 block">Grand Total</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-sky-300 block">Total Quotation Value</span>
             <span className="text-[11px] text-sky-200/80 italic line-clamp-1 max-w-[200px] sm:max-w-xs">
               {numberToWordsIndian(grandTotal)}
             </span>
           </div>
-          <span className="text-2xl font-extrabold text-white tracking-tight">
-            ₹{formatCurrency(grandTotal)}
-          </span>
+          <div className="text-right">
+            <span className="text-2xl font-extrabold text-white tracking-tight">
+              ₹{formatCurrency(grandTotal)}
+            </span>
+            <span className="block text-[10px] text-sky-300 font-medium">+ GST Extra</span>
+          </div>
         </div>
       </div>
 

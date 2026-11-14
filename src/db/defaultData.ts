@@ -136,7 +136,7 @@ export const SAMPLE_QUOTATIONS: Quotation[] = [
     gstRate: 18,
     subtotal: 119200,
     gstAmount: 21456,
-    grandTotal: 140656,
+    grandTotal: 119200,
     status: 'Approved',
     createdAt: Date.now() - 86400000 * 2,
     updatedAt: Date.now() - 86400000 * 2,

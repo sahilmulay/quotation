@@ -246,11 +246,16 @@ export async function generateQuotationImageBlob(
   ctx.lineTo(rightX, 1260);
   ctx.stroke();
 
+  const quotationTotal =
+    quote.items && quote.items.length > 0
+      ? quote.items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
+      : (quote.subtotal || quote.grandTotal);
+
   ctx.fillStyle = '#0F2C59';
   ctx.font = 'bold 22px "Segoe UI", Inter, Arial, sans-serif';
   ctx.textAlign = 'right';
   ctx.fillText('TOTAL', 970, 1246);
-  ctx.fillText(`₹ ${formatCurrency(quote.grandTotal)}`, 1165, 1246);
+  ctx.fillText(`₹ ${formatCurrency(quotationTotal)}`, 1165, 1246);
 
   // 7. TERMS & CONDITIONS AND SIGNATURE (Y: 1260 to 1610)
   ctx.beginPath();

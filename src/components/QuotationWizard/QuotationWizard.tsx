@@ -81,10 +81,10 @@ export const QuotationWizard: React.FC<QuotationWizardProps> = ({
     }
   }, [initialQuotation]);
 
-  // Financial calculations
+  // Financial calculations (Total excludes GST because GST is specified as Extra in terms)
   const subtotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const gstAmount = Math.round((subtotal * (gstRate || 0)) / 100);
-  const grandTotal = subtotal + gstAmount;
+  const grandTotal = subtotal;
 
   // Composite Quotation Object
   const currentQuote: Quotation = {

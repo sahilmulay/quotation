@@ -275,9 +275,14 @@ export function generateQuotationPDF(
     currentY += Math.max(linesCount * 4.5 + 2.5, 7.5);
   });
 
-  // Grand Total in Amount column (Auto-scaled so amounts in crores/lakhs never cross line)
+  // Table Total in Amount column (Sum of product items without adding GST, since GST is extra in terms)
+  const quotationTotal =
+    quote.items && quote.items.length > 0
+      ? quote.items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
+      : (quote.subtotal || quote.grandTotal);
+
   doc.setFont('helvetica', 'bold');
-  drawAutoScaledText(doc, formatCurrency(quote.grandTotal), 198, 215.5, 30, 10.5, 7.5, { align: 'right' });
+  drawAutoScaledText(doc, formatCurrency(quotationTotal), 198, 215.5, 30, 10.5, 7.5, { align: 'right' });
 
   // Terms & Conditions Dynamic Values (Auto-scaled to prevent line collision)
   doc.setFont('helvetica', 'normal');

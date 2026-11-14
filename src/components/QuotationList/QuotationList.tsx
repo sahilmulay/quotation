@@ -154,7 +154,7 @@ export const QuotationList: React.FC<QuotationListProps> = ({
                 <div className="flex items-center gap-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase">Total:</span>
                   <span className="text-sm font-extrabold text-slate-900">
-                    ₹{formatCurrency(quote.grandTotal)}
+                    ₹{formatCurrency(quote.subtotal || quote.grandTotal)}
                   </span>
                 </div>
               </div>
