@@ -3,13 +3,13 @@ import { Customer, CompanyDetails, ProformaInvoice, QuotationItem } from '../../
 import { Step1Customer } from '../QuotationWizard/Step1Customer';
 import { Step3LineItems } from '../QuotationWizard/Step3LineItems';
 import { db, getNextSuggestedPiNo, incrementPiCounter } from '../../db/db';
-import { downloadProformaInvoicePDF, printProformaInvoicePDF } from '../../services/proformaInvoicePdfGenerator';
+import { downloadProformaInvoicePDF } from '../../services/proformaInvoicePdfGenerator';
 import { downloadProformaInvoiceJPG, generateProformaInvoiceImageBlob } from '../../services/imageGenerator';
 import { openProformaInvoiceShareSheet } from '../../services/shareService';
 import { formatCurrency, numberToWordsIndian } from '../../utils/formatters';
 import {
   ArrowLeft, ArrowRight, CheckCircle2, RotateCcw, AlertTriangle,
-  Hash, Calendar, FileCode, Clock, FileDown, Printer, Eye, Share2, FileCheck, Landmark, Check,
+  Hash, Calendar, FileCode, Clock, FileDown, Eye, Share2, FileCheck, Landmark, Check,
   Percent, Truck, Tag
 } from 'lucide-react';
 
@@ -484,13 +484,12 @@ interface PiStep5Props {
   pi: ProformaInvoice;
   company: CompanyDetails;
   onSave: () => Promise<void>;
-  onFinish: () => void;
+  onFinish?: () => void;
 }
 
-const PiStep5Generate: React.FC<PiStep5Props> = ({ pi, company, onSave, onFinish }) => {
+const PiStep5Generate: React.FC<PiStep5Props> = ({ pi, company, onSave }) => {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Auto-save upon arriving at Step 5
@@ -548,26 +547,6 @@ const PiStep5Generate: React.FC<PiStep5Props> = ({ pi, company, onSave, onFinish
     }
   };
 
-  const handlePrint = async () => {
-    try {
-      await onSave();
-      setIsSaved(true);
-      printProformaInvoicePDF(pi, company);
-    } catch (err) {
-      console.error('Print PI error:', err);
-    }
-  };
-
-  const handleSaveAndDone = async () => {
-    setIsSaving(true);
-    await onSave();
-    setIsSaving(false);
-    setIsSaved(true);
-    setTimeout(() => {
-      onFinish();
-    }, 500);
-  };
-
   return (
     <div className="space-y-4">
       {/* Banner */}
@@ -592,46 +571,24 @@ const PiStep5Generate: React.FC<PiStep5Props> = ({ pi, company, onSave, onFinish
         </div>
       )}
 
-      {/* Action Buttons: Download & Share */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        <button
-          type="button"
-          onClick={handleDownloadPhotoAndPDF}
-          className="py-3.5 px-4 bg-[#0F2C59] hover:bg-[#1E3A8A] text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition"
-        >
-          <FileDown className="w-5 h-5 text-sky-300" />
-          <span>Download Photo & PDF</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleShare}
-          className="py-3.5 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition"
-        >
-          <Share2 className="w-5 h-5 text-purple-100" />
-          <span>Share Proforma Invoice</span>
-        </button>
-      </div>
-
-      {/* Secondary Actions: Print & Save */}
+      {/* Clean 2-Button Action Row: Share & Download */}
       <div className="grid grid-cols-2 gap-2.5">
         <button
           type="button"
-          onClick={handlePrint}
-          className="py-3 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition active:scale-[0.98]"
+          onClick={handleShare}
+          className="py-3.5 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 active:scale-[0.98] transition"
         >
-          <Printer className="w-4 h-4 text-slate-300" />
-          <span>Print Document</span>
+          <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-100 shrink-0" />
+          <span>Share Proforma</span>
         </button>
 
         <button
           type="button"
-          onClick={handleSaveAndDone}
-          disabled={isSaving}
-          className="py-3 px-3 rounded-xl font-bold text-xs border flex items-center justify-center gap-2 transition active:scale-[0.98] bg-purple-600 text-white border-purple-600 shadow-xs"
+          onClick={handleDownloadPhotoAndPDF}
+          className="py-3.5 px-3 bg-[#0F2C59] hover:bg-[#1E3A8A] text-white rounded-2xl font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 active:scale-[0.98] transition"
         >
-          <CheckCircle2 className="w-4 h-4 text-white" />
-          <span>{isSaving ? 'Saving...' : 'Saved • View All'}</span>
+          <FileDown className="w-4 h-4 sm:w-5 sm:h-5 text-sky-300 shrink-0" />
+          <span>Download PDF</span>
         </button>
       </div>
 

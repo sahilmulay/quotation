@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { CompanyDetails, Quotation, TemplateConfig } from '../../types';
-import { downloadQuotationPDF, printQuotationPDF } from '../../services/pdfGenerator';
+import { downloadQuotationPDF } from '../../services/pdfGenerator';
 import { downloadQuotationJPG, generateQuotationImageBlob } from '../../services/imageGenerator';
 import { openSystemShareSheet } from '../../services/shareService';
 import { 
-  Printer, 
-  CheckCircle2, 
   FileCheck, 
   FileDown, 
   Check,
@@ -18,7 +16,7 @@ interface Step5GenerateReviewProps {
   company: CompanyDetails;
   template: TemplateConfig;
   onSave: () => Promise<void>;
-  onFinish: () => void;
+  onFinish?: () => void;
 }
 
 export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
@@ -26,10 +24,8 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
   company,
   template,
   onSave,
-  onFinish,
 }) => {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -99,28 +95,6 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
     }
   };
 
-  const handlePrint = async () => {
-    try {
-      // Auto-save quotation before printing
-      await onSave();
-      setIsSaved(true);
-
-      printQuotationPDF(quote, company, template, 'full');
-    } catch (err) {
-      console.error('Print error:', err);
-    }
-  };
-
-  const handleSaveAndDone = async () => {
-    setIsSaving(true);
-    await onSave();
-    setIsSaving(false);
-    setIsSaved(true);
-    setTimeout(() => {
-      onFinish();
-    }, 500);
-  };
-
   return (
     <div className="space-y-4">
       {/* Banner */}
@@ -155,50 +129,24 @@ export const Step5GenerateReview: React.FC<Step5GenerateReviewProps> = ({
         </div>
       )}
 
-      {/* Primary Action Buttons: Download & Share */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        {/* Download Photo & PDF (Auto-saves) */}
-        <button
-          type="button"
-          onClick={handleDownloadPhotoAndPDF}
-          className="py-3.5 px-4 bg-[#0F2C59] hover:bg-[#1E3A8A] text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition"
-        >
-          <FileDown className="w-5 h-5 text-sky-300" />
-          <span>Download Photo & PDF</span>
-        </button>
-
-        {/* Share Button (Auto-saves & Opens Native Share Drawer) */}
+      {/* Clean 2-Button Action Row: Share & Download */}
+      <div className="grid grid-cols-2 gap-2.5">
         <button
           type="button"
           onClick={handleShare}
-          className="py-3.5 px-4 bg-sky-600 hover:bg-sky-700 text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition"
+          className="py-3.5 px-3 bg-sky-600 hover:bg-sky-700 text-white rounded-2xl font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 active:scale-[0.98] transition"
         >
-          <Share2 className="w-5 h-5 text-sky-100" />
-          <span>Share Quotation</span>
-        </button>
-      </div>
-
-      {/* Secondary Actions: Print & Save */}
-      <div className="grid grid-cols-2 gap-2.5">
-        {/* Print Document (Auto-saves) */}
-        <button
-          type="button"
-          onClick={handlePrint}
-          className="py-3 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition active:scale-[0.98]"
-        >
-          <Printer className="w-4 h-4 text-slate-300" />
-          <span>Print Document</span>
+          <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-sky-100 shrink-0" />
+          <span>Share Quote</span>
         </button>
 
-        {/* Save & Finish Button */}
         <button
           type="button"
-          onClick={handleSaveAndDone}
-          disabled={isSaving}
-          className="py-3 px-3 rounded-xl font-bold text-xs border flex items-center justify-center gap-2 transition active:scale-[0.98] bg-emerald-600 text-white border-emerald-600 shadow-xs"
+          onClick={handleDownloadPhotoAndPDF}
+          className="py-3.5 px-3 bg-[#0F2C59] hover:bg-[#1E3A8A] text-white rounded-2xl font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 active:scale-[0.98] transition"
         >
-          <CheckCircle2 className="w-4 h-4 text-white" />
-          <span>{isSaving ? 'Saving...' : 'Saved • View All'}</span>
+          <FileDown className="w-4 h-4 sm:w-5 sm:h-5 text-sky-300 shrink-0" />
+          <span>Download PDF</span>
         </button>
       </div>
 

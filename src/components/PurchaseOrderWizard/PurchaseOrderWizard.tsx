@@ -4,12 +4,12 @@ import { Step1Customer } from '../QuotationWizard/Step1Customer';
 import { Step3LineItems } from '../QuotationWizard/Step3LineItems';
 import { Step4Terms } from '../QuotationWizard/Step4Terms';
 import { db, getNextSuggestedPoNo, incrementPoCounter } from '../../db/db';
-import { downloadPurchaseOrderPDF, printPurchaseOrderPDF } from '../../services/purchaseOrderPdfGenerator';
+import { downloadPurchaseOrderPDF } from '../../services/purchaseOrderPdfGenerator';
 import { downloadPurchaseOrderJPG, generatePurchaseOrderImageBlob } from '../../services/imageGenerator';
 import { openPurchaseOrderShareSheet } from '../../services/shareService';
 import {
   ArrowLeft, ArrowRight, CheckCircle2, RotateCcw, AlertTriangle,
-  Hash, Calendar, FileCode, Clock, FileDown, Printer, Eye, Share2, FileCheck, Check
+  Hash, Calendar, FileCode, Clock, FileDown, Eye, Share2, FileCheck, Check
 } from 'lucide-react';
 
 interface PurchaseOrderWizardProps {
@@ -287,13 +287,12 @@ interface PoStep5Props {
   po: PurchaseOrder;
   company: CompanyDetails;
   onSave: () => Promise<void>;
-  onFinish: () => void;
+  onFinish?: () => void;
 }
 
-const PoStep5Generate: React.FC<PoStep5Props> = ({ po, company, onSave, onFinish }) => {
+const PoStep5Generate: React.FC<PoStep5Props> = ({ po, company, onSave }) => {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Auto-save upon arriving at Step 5
@@ -351,26 +350,6 @@ const PoStep5Generate: React.FC<PoStep5Props> = ({ po, company, onSave, onFinish
     }
   };
 
-  const handlePrint = async () => {
-    try {
-      await onSave();
-      setIsSaved(true);
-      printPurchaseOrderPDF(po, company);
-    } catch (err) {
-      console.error('Print PO error:', err);
-    }
-  };
-
-  const handleSaveAndDone = async () => {
-    setIsSaving(true);
-    await onSave();
-    setIsSaving(false);
-    setIsSaved(true);
-    setTimeout(() => {
-      onFinish();
-    }, 500);
-  };
-
   return (
     <div className="space-y-4">
       {/* Banner */}
@@ -395,46 +374,24 @@ const PoStep5Generate: React.FC<PoStep5Props> = ({ po, company, onSave, onFinish
         </div>
       )}
 
-      {/* Action Buttons: Download & Share */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        <button
-          type="button"
-          onClick={handleDownloadPhotoAndPDF}
-          className="py-3.5 px-4 bg-[#0F2C59] hover:bg-[#1E3A8A] text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition"
-        >
-          <FileDown className="w-5 h-5 text-sky-300" />
-          <span>Download Photo & PDF</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleShare}
-          className="py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] transition"
-        >
-          <Share2 className="w-5 h-5 text-emerald-100" />
-          <span>Share Purchase Order</span>
-        </button>
-      </div>
-
-      {/* Secondary Actions: Print & Save */}
+      {/* Clean 2-Button Action Row: Share & Download */}
       <div className="grid grid-cols-2 gap-2.5">
         <button
           type="button"
-          onClick={handlePrint}
-          className="py-3 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition active:scale-[0.98]"
+          onClick={handleShare}
+          className="py-3.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 active:scale-[0.98] transition"
         >
-          <Printer className="w-4 h-4 text-slate-300" />
-          <span>Print Document</span>
+          <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-100 shrink-0" />
+          <span>Share PO</span>
         </button>
 
         <button
           type="button"
-          onClick={handleSaveAndDone}
-          disabled={isSaving}
-          className="py-3 px-3 rounded-xl font-bold text-xs border flex items-center justify-center gap-2 transition active:scale-[0.98] bg-emerald-600 text-white border-emerald-600 shadow-xs"
+          onClick={handleDownloadPhotoAndPDF}
+          className="py-3.5 px-3 bg-[#0F2C59] hover:bg-[#1E3A8A] text-white rounded-2xl font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 active:scale-[0.98] transition"
         >
-          <CheckCircle2 className="w-4 h-4 text-white" />
-          <span>{isSaving ? 'Saving...' : 'Saved • View All'}</span>
+          <FileDown className="w-4 h-4 sm:w-5 sm:h-5 text-sky-300 shrink-0" />
+          <span>Download PDF</span>
         </button>
       </div>
 
