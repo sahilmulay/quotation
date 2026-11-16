@@ -21,7 +21,8 @@ export const ProformaList: React.FC<ProformaListProps> = ({
   const filtered = proformaInvoices.filter(p =>
     p.piNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (p.refNo && p.refNo.toLowerCase().includes(searchQuery.toLowerCase()))
+    (p.refNo && p.refNo.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (p.poNo && p.poNo.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleDelete = async (pi: ProformaInvoice) => {

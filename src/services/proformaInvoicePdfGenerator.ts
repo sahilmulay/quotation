@@ -126,7 +126,7 @@ export function generateProformaInvoicePDF(
   doc.setTextColor(51, 65, 85);
   doc.text('P.I. No.', 122.5, 70);
   doc.text('Date :', 168.5, 70);
-  doc.text('Ref. No.', 122.5, 83);
+  doc.text('P.O. No.', 122.5, 83);
   doc.text('Date :', 168.5, 83);
 
   doc.setFont('helvetica', 'bold');
@@ -138,11 +138,11 @@ export function generateProformaInvoicePDF(
   doc.setTextColor(51, 65, 85);
   doc.text(formatDate(pi.piDate), 180, 70);
 
-  drawAutoScaledText(doc, pi.refNo || '-', 136, 83, 28.5, 9, 6);
+  drawAutoScaledText(doc, pi.poNo || pi.refNo || '-', 136, 83, 28.5, 9, 6);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.text(formatDate(pi.refDate) || '-', 180, 83);
+  doc.text(formatDate(pi.poDate || pi.refDate) || '-', 180, 83);
 
   // ==========================================
   // 5. SALUTATION SECTION (Y: 89 to 100)
@@ -156,7 +156,7 @@ export function generateProformaInvoicePDF(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.text(
-    'With reference to your above mentioned enquiry, we submit our proforma invoice as follows.',
+    'With reference to your above PO no., we submit our proforma invoice as follows.',
     24,
     97.5
   );

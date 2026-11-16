@@ -56,12 +56,12 @@ interface CommonDocData {
   customerName: string;
   customerAddress: string;
   items: Array<{ srNo?: number; description: string; quantity: number; unitRate: number; amount: number }>;
-  warranty: string;
-  packingForwarding: string;
-  freight: string;
-  paymentTerms: string;
-  validity: string;
-  deliveryPeriod: string;
+  warranty?: string;
+  packingForwarding?: string;
+  freight?: string;
+  paymentTerms?: string;
+  validity?: string;
+  deliveryPeriod?: string;
   gstRate: number;
   subtotal: number;
   grandTotal: number;
@@ -199,10 +199,11 @@ async function renderDocToCanvasBlob(
   ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
   ctx.fillText(formatDate(data.docDate), dateSplitX + 75, 415);
 
-  // Ref. No.
+  // Ref. No. / P.O. No.
   ctx.fillStyle = '#64748B';
   ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText('Ref. No. :', metaSplitX + 15, 490);
+  const refLabel = data.type === 'proforma' ? 'P.O. No. :' : 'Ref. No. :';
+  ctx.fillText(refLabel, metaSplitX + 15, 490);
   ctx.fillStyle = '#1E293B';
   drawAutoScaledCanvasText(ctx, data.refNo || '-', metaSplitX + 105, 490, 185, 20, 12, 'bold');
 
@@ -224,7 +225,11 @@ async function renderDocToCanvasBlob(
   ctx.font = 'bold 20px "Segoe UI", Inter, Arial, sans-serif';
   ctx.fillText('Dear Sir,', leftX + 24, 555);
   ctx.font = '20px "Segoe UI", Inter, Arial, sans-serif';
-  ctx.fillText('With reference to your above mentioned enquiry, we submit our lowest offer as follows.', leftX + 80, 585);
+  const salutationFollowText =
+    data.type === 'proforma'
+      ? 'With reference to your above PO no., we submit our proforma invoice as follows.'
+      : 'With reference to your above mentioned enquiry, we submit our lowest offer as follows.';
+  ctx.fillText(salutationFollowText, leftX + 80, 585);
 
   // 6. TABLE HEADER & COLUMN GRID (Y: 605 to 1260)
   const colX = [60, 140, 730, 830, 985, 1180];
@@ -725,8 +730,8 @@ export async function generateProformaInvoiceImageBlob(
       type: 'proforma',
       docNo: pi.piNo,
       docDate: pi.piDate,
-      refNo: pi.refNo,
-      refDate: pi.refDate,
+      refNo: pi.poNo || pi.refNo,
+      refDate: pi.poDate || pi.refDate,
       customerName: pi.customerName,
       customerAddress: pi.customerAddress,
       items: pi.items,

@@ -96,17 +96,19 @@ export interface ProformaInvoice {
   id?: number;
   piNo: string;
   piDate: string;
-  refNo: string;
-  refDate: string;
+  refNo: string; // PO No. (backward compatible)
+  refDate: string; // PO Date
+  poNo?: string;
+  poDate?: string;
   customerName: string;
   customerAddress: string;
   items: QuotationItem[];
-  warranty: string;
-  packingForwarding: string;
-  freight: string;
-  paymentTerms: string;
-  validity: string;
-  deliveryPeriod: string;
+  warranty?: string;
+  packingForwarding?: string;
+  freight?: string;
+  paymentTerms?: string;
+  validity?: string;
+  deliveryPeriod?: string;
   gstRate: number;
   subtotal: number;
   packagingFreightAmount?: number; // Add: Packaging, Forwarding, Freight

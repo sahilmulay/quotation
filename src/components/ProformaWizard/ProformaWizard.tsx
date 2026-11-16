@@ -10,7 +10,7 @@ import { formatCurrency, numberToWordsIndian } from '../../utils/formatters';
 import {
   ArrowLeft, ArrowRight, CheckCircle2, RotateCcw, AlertTriangle,
   Hash, Calendar, FileCode, Clock, FileDown, Printer, Eye, Share2, FileCheck, Landmark, Check,
-  Percent, Truck, Tag, CreditCard
+  Percent, Truck, Tag
 } from 'lucide-react';
 
 interface ProformaWizardProps {
@@ -40,12 +40,6 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
   const [items, setItems] = useState<QuotationItem[]>(
     initialPi?.items || [{ id: 'item-1', srNo: 1, description: '', quantity: 1, unitRate: 0, amount: 0 }]
   );
-  const [warranty, setWarranty] = useState(initialPi?.warranty || '12 Months against manufacturing defects');
-  const [packingForwarding, _setPackingForwarding] = useState(initialPi?.packingForwarding || 'Included in above rates');
-  const [freight, _setFreight] = useState(initialPi?.freight || 'Extra at actual / To Pay');
-  const [paymentTerms, setPaymentTerms] = useState(initialPi?.paymentTerms || '100% against delivery');
-  const [validity, setValidity] = useState(initialPi?.validity || '30 Days');
-  const [deliveryPeriod, setDeliveryPeriod] = useState(initialPi?.deliveryPeriod || '1 to 2 Weeks');
   const [gstRate, setGstRate] = useState(initialPi?.gstRate ?? 18);
 
   // Financial adjustments as per official physical Proforma Invoice template
@@ -76,9 +70,11 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
 
   const currentPi: ProformaInvoice = {
     id: piId,
-    piNo, piDate, refNo, refDate, customerName, customerAddress,
-    items, warranty, packingForwarding, freight, paymentTerms,
-    validity, deliveryPeriod, gstRate, subtotal,
+    piNo, piDate,
+    refNo, refDate,
+    poNo: refNo, poDate: refDate,
+    customerName, customerAddress,
+    items, gstRate, subtotal,
     packagingFreightAmount,
     discountPercent,
     discountAmount,
@@ -163,7 +159,7 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
     }
   };
 
-  const stepLabel = ['Customer', 'PI Info', 'Line Items', 'Terms & Tax', 'Generate & Share'][currentStep - 1];
+  const stepLabel = ['Customer', 'PI Info', 'Line Items', 'Financials & Tax', 'Generate & Share'][currentStep - 1];
 
   return (
     <div className="pb-28 pt-2">
@@ -212,7 +208,7 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
             <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold">2</div>
             <div>
               <h3 className="font-bold text-slate-800 text-sm">Proforma Invoice Info</h3>
-              <p className="text-xs text-slate-500">PI number, dates, and reference info</p>
+              <p className="text-xs text-slate-500">PI number, dates, and PO info</p>
             </div>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 space-y-4">
@@ -238,15 +234,15 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1">
-                  <FileCode className="w-3.5 h-3.5 text-purple-600" /> Reference No.
+                  <FileCode className="w-3.5 h-3.5 text-purple-600" /> PO No.
                 </label>
                 <input type="text" value={refNo} onChange={e => setRefNo(e.target.value)}
-                  placeholder="e.g. ENQ/2026/089"
+                  placeholder="e.g. PO-101"
                   className="w-full text-sm font-medium px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50/50 outline-none" />
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-purple-600" /> Reference Date
+                  <Clock className="w-3.5 h-3.5 text-purple-600" /> PO Date
                 </label>
                 <input type="date" value={refDate} onChange={e => setRefDate(e.target.value)}
                   className="w-full text-sm font-medium px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50/50 outline-none" />
@@ -283,7 +279,7 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
               4
             </div>
             <div>
-              <h3 className="font-bold text-slate-800 text-sm">Financial Adjustments & Terms</h3>
+              <h3 className="font-bold text-slate-800 text-sm">Financial Adjustments & Tax</h3>
               <p className="text-xs text-slate-500">Packaging, Discount %, Balance Sub Total & GST</p>
             </div>
           </div>
@@ -450,83 +446,6 @@ export const ProformaWizard: React.FC<ProformaWizardProps> = ({
                   Inclusive of GST
                 </span>
               </div>
-            </div>
-          </div>
-
-          {/* Commercial Terms Section */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 space-y-4">
-            <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-1.5 border-b border-slate-100 pb-2">
-              <CreditCard className="w-4 h-4 text-purple-600" />
-              <span>Commercial Terms & Delivery</span>
-            </h4>
-
-            {/* Payment Terms */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                Payment Terms
-              </label>
-              <input
-                type="text"
-                value={paymentTerms}
-                onChange={(e) => setPaymentTerms(e.target.value)}
-                placeholder="e.g. 100% against delivery"
-                className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50/50 outline-none"
-              />
-              <div className="flex flex-wrap gap-1 mt-1.5">
-                {['100% against delivery', '30% Adv, 70% against delivery', '100% Advance', '30 Days Credit'].map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setPaymentTerms(opt)}
-                    className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Delivery Period & Validity */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                  Delivery Period
-                </label>
-                <input
-                  type="text"
-                  value={deliveryPeriod}
-                  onChange={(e) => setDeliveryPeriod(e.target.value)}
-                  placeholder="e.g. 1 to 2 Weeks"
-                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50/50 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                  Offer Validity
-                </label>
-                <input
-                  type="text"
-                  value={validity}
-                  onChange={(e) => setValidity(e.target.value)}
-                  placeholder="e.g. 30 Days"
-                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50/50 outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Warranty & Notes */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                Warranty
-              </label>
-              <input
-                type="text"
-                value={warranty}
-                onChange={(e) => setWarranty(e.target.value)}
-                placeholder="e.g. 12 Months against manufacturing defects"
-                className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50/50 outline-none"
-              />
             </div>
           </div>
         </div>
