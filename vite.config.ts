@@ -18,11 +18,11 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'logo.png'],
       manifest: {
-        name: 'Apex Industries Quotation App',
-        short_name: 'Apex Quote',
-        description: 'Offline Mobile Quotation Generator for Apex Industries',
+        name: 'Apex Industries',
+        short_name: 'Apex Industries',
+        description: 'Apex Industries Quotation & Proforma Generator',
         theme_color: '#0F2C59',
-        background_color: '#f8fafc',
+        background_color: '#FFFFFF',
         display: 'standalone',
         orientation: 'portrait',
         icons: [

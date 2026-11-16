@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { WifiOff, Download, FileText } from 'lucide-react';
+import { WifiOff, Download } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
@@ -43,8 +43,8 @@ export const Header: React.FC = () => {
       <div className="max-w-xl mx-auto px-4 py-3 flex items-center justify-between">
         {/* Left: Brand / Logo */}
         <div className="flex items-center space-x-2.5">
-          <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center shadow-inner">
-            <FileText className="w-5 h-5 text-sky-300" />
+          <div className="w-9 h-9 rounded-xl bg-white border border-white/20 p-1 flex items-center justify-center shadow-md overflow-hidden">
+            <img src="/pwa-192x192.png" alt="Apex Industries" className="w-full h-full object-contain" />
           </div>
           <div>
             <h1 className="text-base font-bold tracking-tight text-white leading-tight flex items-center gap-1.5">
